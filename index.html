@@ -18,7 +18,6 @@
   --cyan:#89ddff;--cyan-dim:rgba(137,221,255,.12);
   --orange:#f78c6c;--orange-dim:rgba(247,140,108,.14);
   --text:#e2c9ff;--text2:#a98ec7;--text3:#6b5080;
-  --hover:rgba(233,30,140,.08);
   --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -43,7 +42,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .platform-card.sym::before{background:linear-gradient(135deg,rgba(245,158,11,.08),transparent);}
 .platform-card.fp::before{background:linear-gradient(135deg,rgba(139,92,246,.08),transparent);}
 .platform-card:hover::before{opacity:1;}
-.pc-icon{font-size:28px;margin-bottom:10px;}
+.pc-icon{font-size:0;margin-bottom:12px;display:flex;align-items:center;justify-content:center;height:52px;}
 .pc-name{font-size:14px;font-weight:700;margin-bottom:4px;}
 .pc-desc{font-size:11px;color:var(--text3);line-height:1.5;}
 .pc-modules{margin-top:10px;font-size:10px;font-family:var(--mono);color:var(--text3);}
@@ -85,7 +84,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .platform-switcher{position:relative;}
 .ps-trigger{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--border2);border-radius:7px;padding:5px 10px;cursor:pointer;transition:border-color .15s;font-size:12px;font-weight:600;white-space:nowrap;}
 .ps-trigger:hover{border-color:var(--accent);}
-.ps-trigger .ps-icon{font-size:15px;}
+.ps-trigger .ps-icon{font-size:0;display:inline-flex;align-items:center;}
 .ps-trigger .ps-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;}
 .ps-trigger .ps-arrow{color:var(--text3);font-size:10px;margin-left:2px;transition:transform .2s;}
 .ps-trigger.open .ps-arrow{transform:rotate(180deg);}
@@ -94,7 +93,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .ps-option{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .1s;font-size:12px;}
 .ps-option:hover{background:var(--s3);}
 .ps-option.active{background:var(--accent-dim);}
-.ps-option .pso-icon{font-size:16px;width:20px;text-align:center;}
+.ps-option .pso-icon{font-size:0;width:24px;display:inline-flex;align-items:center;justify-content:center;}
 .ps-option .pso-name{font-weight:600;}
 .ps-option .pso-sub{font-size:10px;color:var(--text3);font-family:var(--mono);}
 .ps-badge{margin-left:auto;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;}
@@ -271,105 +270,105 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="landing-sub">Upload exported configuration data to audit rules, policies, and settings for overlap, misconfigurations, and coverage gaps.</div>
   <div class="platform-grid">
     <div class="platform-card pp" onclick="launchPlatform('pp')">
-      <div class="pc-icon">🛡</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
       <div class="pc-name">Proofpoint</div>
       <div class="pc-desc">CASB, Email Security, DLP, TAP, Human Risk, and more</div>
       <div class="pc-modules">11 modules · Full audit</div>
       <div class="pc-accent pp"></div>
     </div>
     <div class="platform-card purview" onclick="launchPlatform('purview')">
-      <div class="pc-icon">🔷</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><rect x="9" y="9" width="9" height="9" rx="1.5" fill="#F25022"/><rect x="22" y="9" width="9" height="9" rx="1.5" fill="#7FBA00"/><rect x="9" y="22" width="9" height="9" rx="1.5" fill="#00A4EF"/><rect x="22" y="22" width="9" height="9" rx="1.5" fill="#FFB900"/></svg></div>
       <div class="pc-name">Microsoft Purview</div>
       <div class="pc-desc">DLP policies, sensitivity labels, information protection, compliance</div>
       <div class="pc-modules">6 modules · Full audit</div>
       <div class="pc-accent purview"></div>
     </div>
     <div class="platform-card cs" onclick="launchPlatform('cs')">
-      <div class="pc-icon">🦅</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#C00"/><path d="M10 7 C10 7 24 6 30 13 C36 20 31 28 24 30 L31 36 L24 36 L17 27 C13 27 10 23 10 18 Z" fill="#fff"/><circle cx="24" cy="14" r="2.5" fill="#C00"/></svg></div>
       <div class="pc-name">CrowdStrike</div>
       <div class="pc-desc">Falcon prevention policies, detections, response actions</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent cs"></div>
     </div>
     <div class="platform-card zs" onclick="launchPlatform('zs')">
-      <div class="pc-icon">☁</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#005DAA"/><path d="M29 19a7 7 0 00-13.5-2.2A5 5 0 0010 22a5 5 0 005 5h15a5 5 0 000-10z" fill="#fff"/><path d="M13 31h14l-14 0" stroke="#fff" stroke-width="0" fill="none"/></svg></div>
       <div class="pc-name">Zscaler</div>
       <div class="pc-desc">ZIA/ZPA policies, URL filtering, app access, tunnels</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent zs"></div>
     </div>
     <div class="platform-card sym" onclick="launchPlatform('sym')">
-      <div class="pc-icon">🔐</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#FDB81E"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="#fff" opacity=".95"/><path d="M14 20l4 4 8-8" stroke="#FDB81E" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
       <div class="pc-name">Symantec DLP</div>
       <div class="pc-desc">Detection policies, response rules, classifiers, endpoint</div>
       <div class="pc-modules">4 modules · Full audit</div>
       <div class="pc-accent sym"></div>
     </div>
     <div class="platform-card fp" onclick="launchPlatform('fp')">
-      <div class="pc-icon">🔮</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#6B21A8"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="none" stroke="#fff" stroke-width="2" opacity=".7"/><text x="20" y="25" text-anchor="middle" fill="#fff" font-size="15" font-weight="800" font-family="Arial,sans-serif">F</text></svg></div>
       <div class="pc-name">Forcepoint DLP</div>
       <div class="pc-desc">Policies, classifiers, destinations, incident workflow</div>
       <div class="pc-modules">4 modules · Full audit</div>
       <div class="pc-accent fp"></div>
     </div>
     <div class="platform-card msd" onclick="launchPlatform('msd')">
-      <div class="pc-icon">🪟</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><path d="M20 5L8 10v9.5C8 27 13.5 33.5 20 35.5 26.5 33.5 32 27 32 19.5V10z" fill="#fff" opacity=".18" stroke="#fff" stroke-width="1.5"/><rect x="14" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="14" y="22" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="22" width="5" height="5" rx=".7" fill="#fff"/></svg></div>
       <div class="pc-name">Microsoft Defender</div>
       <div class="pc-desc">MDE, MDO, MDCA — endpoint, email, cloud app defense</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent msd"></div>
     </div>
     <div class="platform-card splunk" onclick="launchPlatform('splunk')">
-      <div class="pc-icon">🔎</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#1C1C1C"/><path d="M11 11l18 9-18 9" stroke="#FF6600" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
       <div class="pc-name">Splunk / SIEM</div>
       <div class="pc-desc">Saved searches, correlation rules, alert hygiene, data sources</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent splunk"></div>
     </div>
     <div class="platform-card s1" onclick="launchPlatform('s1')">
-      <div class="pc-icon">🟣</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4C1D95"/><path d="M27 15C27 11.1 23.9 8 20 8s-7 3.1-7 7c0 3.2 2.2 5 5 5.9l3.1 1 C23.8 22.8 27 24.7 27 28.2 27 32.5 23.9 35 20 35s-7-2.5-7-6.5" stroke="#fff" stroke-width="3.2" stroke-linecap="round" fill="none"/></svg></div>
       <div class="pc-name">SentinelOne</div>
       <div class="pc-desc">Prevention policies, exclusions, network control, response</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent s1"></div>
     </div>
     <div class="platform-card okta" onclick="launchPlatform('okta')">
-      <div class="pc-icon">🔵</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0059B2"/><circle cx="20" cy="20" r="10" stroke="#fff" stroke-width="3.5" fill="none"/><circle cx="20" cy="20" r="4" fill="#fff"/></svg></div>
       <div class="pc-name">Okta</div>
       <div class="pc-desc">Sign-on policies, MFA, provisioning, app access</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent okta"></div>
     </div>
     <div class="platform-card azure" onclick="launchPlatform('azure')">
-      <div class="pc-icon">☁</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><defs><linearGradient id="azg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0089D6"/><stop offset="100%" stop-color="#003F8A"/></linearGradient></defs><rect width="40" height="40" rx="8" fill="url(#azg)"/><path d="M20 6L8 34h7.5l4.5-9 4.5 9H32z" fill="#fff"/><path d="M16 25.5h8" stroke="#003F8A" stroke-width="2.5" fill="none"/></svg></div>
       <div class="pc-name">Azure / Entra ID</div>
       <div class="pc-desc">Conditional Access, identity, Defender for Cloud, policies</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent azure"></div>
     </div>
     <div class="platform-card oort" onclick="launchPlatform('oort')">
-      <div class="pc-icon">🌀</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4F46E5"/><ellipse cx="20" cy="20" rx="13" ry="6" stroke="#fff" stroke-width="2.2" fill="none"/><ellipse cx="20" cy="20" rx="6" ry="13" stroke="#fff" stroke-width="2.2" fill="none"/><circle cx="20" cy="20" r="3.5" fill="#fff"/></svg></div>
       <div class="pc-name">OORT</div>
       <div class="pc-desc">Identity risk posture, stale accounts, privileged access</div>
       <div class="pc-modules">4 modules · Full audit</div>
       <div class="pc-accent oort"></div>
     </div>
     <div class="platform-card gws" onclick="launchPlatform('gws')">
-      <div class="pc-icon">🔴</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.5"/><path d="M20 7a13 13 0 00-9.2 22.2L15 25a8 8 0 0111.2-.7V20h5.8A13 13 0 0020 7z" fill="#4285F4"/><path d="M10.8 29.2L15 25a8 8 0 0010.5.5l4.2 4.2A13 13 0 0110.8 29.2z" fill="#34A853"/><path d="M7 20a13 13 0 003.8 9.2l4.2-4.2A8 8 0 0113 20a8 8 0 011.5-4.7l-4.3-4.3A13 13 0 007 20z" fill="#FBBC05"/><path d="M20 12a8 8 0 015.5 2.2l4.1-4.1A13 13 0 0010.2 11l4.3 4.3A8 8 0 0120 12z" fill="#EA4335"/></svg></div>
       <div class="pc-name">Google Workspace</div>
       <div class="pc-desc">Security settings, DLP, app access, admin console</div>
       <div class="pc-modules">5 modules · Full audit</div>
       <div class="pc-accent gws"></div>
     </div>
     <div class="platform-card extrahop" onclick="launchPlatform('extrahop')">
-      <div class="pc-icon">📡</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#087A6E"/><path d="M4 22C7.5 22 7.5 15 12 15 17 15 17 25 21.5 25 26 25 26 12 30 12 34 12 34 20 38 20" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="37" cy="20" r="2.5" fill="#fff"/></svg></div>
       <div class="pc-name">ExtraHop</div>
       <div class="pc-desc">NDR detections, threat briefings, network policies</div>
       <div class="pc-modules">4 modules · Full audit</div>
       <div class="pc-accent extrahop"></div>
     </div>
     <div class="platform-card aws" onclick="launchPlatform('aws')">
-      <div class="pc-icon">🟠</div>
+      <div class="pc-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="44" height="44" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#232F3E"/><path d="M12 18a7 7 0 011-10.5A9 9 0 0130 9a6 6 0 012.5 11" stroke="#FF9900" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M10 28C14 33 26 33 30 28" stroke="#FF9900" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M27 26.5l3 1.5-1.5 3" stroke="#FF9900" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
       <div class="pc-name">AWS</div>
       <div class="pc-desc">IAM policies, security groups, GuardDuty, CloudTrail</div>
       <div class="pc-modules">5 modules · Full audit</div>
@@ -383,33 +382,33 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <div id="app">
   <div class="topbar">
     <div class="brand" onclick="showLanding()">
-      <div class="brand-icon" id="topbar-icon">🛡</div>
+      <div class="brand-icon" id="topbar-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
       <div class="brand-text" id="topbar-name">Auditor</div>
     </div>
 
     <!-- Platform switcher -->
     <div class="platform-switcher" id="platform-switcher">
       <div class="ps-trigger" id="ps-trigger" onclick="togglePlatformDropdown()">
-        <span class="ps-icon" id="ps-icon">🛡</span>
+        <span class="ps-icon" id="ps-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
         <span class="ps-name" id="ps-name">Proofpoint</span>
         <span class="ps-arrow">▾</span>
       </div>
       <div class="ps-dropdown hidden" id="ps-dropdown">
-        <div class="ps-option" data-p="pp"      onclick="switchPlatform('pp')"><span class="pso-icon">🛡</span><div><div class="pso-name">Proofpoint</div><div class="pso-sub">11 modules</div></div><span class="ps-badge" id="psb-pp" style="background:var(--accent-dim);color:var(--accent)"></span></div>
-        <div class="ps-option" data-p="purview" onclick="switchPlatform('purview')"><span class="pso-icon">🔷</span><div><div class="pso-name">Microsoft Purview</div><div class="pso-sub">6 modules</div></div><span class="ps-badge" id="psb-purview" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
-        <div class="ps-option" data-p="cs"      onclick="switchPlatform('cs')"><span class="pso-icon">🦅</span><div><div class="pso-name">CrowdStrike</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-cs" style="background:var(--red-dim);color:var(--red)"></span></div>
-        <div class="ps-option" data-p="zs"      onclick="switchPlatform('zs')"><span class="pso-icon">☁</span><div><div class="pso-name">Zscaler</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-zs" style="background:var(--green-dim);color:var(--green)"></span></div>
-        <div class="ps-option" data-p="sym"     onclick="switchPlatform('sym')"><span class="pso-icon">🔐</span><div><div class="pso-name">Symantec DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-sym" style="background:var(--yellow-dim);color:var(--yellow)"></span></div>
-        <div class="ps-option" data-p="fp"      onclick="switchPlatform('fp')"><span class="pso-icon">🔮</span><div><div class="pso-name">Forcepoint DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-fp" style="background:var(--purple-dim);color:var(--purple)"></span></div>
-        <div class="ps-option" data-p="msd"     onclick="switchPlatform('msd')"><span class="pso-icon">🪟</span><div><div class="pso-name">MS Defender</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-msd" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
-        <div class="ps-option" data-p="splunk"  onclick="switchPlatform('splunk')"><span class="pso-icon">🔎</span><div><div class="pso-name">Splunk / SIEM</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-splunk" style="background:rgba(247,148,30,.15);color:#f7941e"></span></div>
-        <div class="ps-option" data-p="s1"      onclick="switchPlatform('s1')"><span class="pso-icon">🟣</span><div><div class="pso-name">SentinelOne</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-s1" style="background:rgba(168,85,247,.15);color:#a855f7"></span></div>
-        <div class="ps-option" data-p="okta"    onclick="switchPlatform('okta')"><span class="pso-icon">🔵</span><div><div class="pso-name">Okta</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-okta" style="background:rgba(0,125,193,.15);color:#007dc1"></span></div>
-        <div class="ps-option" data-p="azure"   onclick="switchPlatform('azure')"><span class="pso-icon">☁</span><div><div class="pso-name">Azure / Entra</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-azure" style="background:rgba(0,137,214,.15);color:#0089d6"></span></div>
-        <div class="ps-option" data-p="oort"    onclick="switchPlatform('oort')"><span class="pso-icon">🌀</span><div><div class="pso-name">OORT</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-oort" style="background:rgba(6,182,212,.15);color:#06b6d4"></span></div>
-        <div class="ps-option" data-p="gws"     onclick="switchPlatform('gws')"><span class="pso-icon">🔴</span><div><div class="pso-name">Google Workspace</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-gws" style="background:rgba(234,67,53,.15);color:#ea4335"></span></div>
-        <div class="ps-option" data-p="extrahop" onclick="switchPlatform('extrahop')"><span class="pso-icon">📡</span><div><div class="pso-name">ExtraHop</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-extrahop" style="background:rgba(0,180,160,.15);color:#00b4a0"></span></div>
-        <div class="ps-option" data-p="aws"     onclick="switchPlatform('aws')"><span class="pso-icon">🟠</span><div><div class="pso-name">AWS</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-aws" style="background:rgba(255,153,0,.15);color:#ff9900"></span></div>
+        <div class="ps-option" data-p="pp"      onclick="switchPlatform('pp')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Proofpoint</div><div class="pso-sub">11 modules</div></div><span class="ps-badge" id="psb-pp" style="background:var(--accent-dim);color:var(--accent)"></span></div>
+        <div class="ps-option" data-p="purview" onclick="switchPlatform('purview')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><rect x="9" y="9" width="9" height="9" rx="1.5" fill="#F25022"/><rect x="22" y="9" width="9" height="9" rx="1.5" fill="#7FBA00"/><rect x="9" y="22" width="9" height="9" rx="1.5" fill="#00A4EF"/><rect x="22" y="22" width="9" height="9" rx="1.5" fill="#FFB900"/></svg></span><div><div class="pso-name">Microsoft Purview</div><div class="pso-sub">6 modules</div></div><span class="ps-badge" id="psb-purview" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
+        <div class="ps-option" data-p="cs"      onclick="switchPlatform('cs')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#C00"/><path d="M10 7 C10 7 24 6 30 13 C36 20 31 28 24 30 L31 36 L24 36 L17 27 C13 27 10 23 10 18 Z" fill="#fff"/><circle cx="24" cy="14" r="2.5" fill="#C00"/></svg></span><div><div class="pso-name">CrowdStrike</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-cs" style="background:var(--red-dim);color:var(--red)"></span></div>
+        <div class="ps-option" data-p="zs"      onclick="switchPlatform('zs')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#005DAA"/><path d="M29 19a7 7 0 00-13.5-2.2A5 5 0 0010 22a5 5 0 005 5h15a5 5 0 000-10z" fill="#fff"/><path d="M13 31h14l-14 0" stroke="#fff" stroke-width="0" fill="none"/></svg></span><div><div class="pso-name">Zscaler</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-zs" style="background:var(--green-dim);color:var(--green)"></span></div>
+        <div class="ps-option" data-p="sym"     onclick="switchPlatform('sym')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#FDB81E"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="#fff" opacity=".95"/><path d="M14 20l4 4 8-8" stroke="#FDB81E" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Symantec DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-sym" style="background:var(--yellow-dim);color:var(--yellow)"></span></div>
+        <div class="ps-option" data-p="fp"      onclick="switchPlatform('fp')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#6B21A8"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="none" stroke="#fff" stroke-width="2" opacity=".7"/><text x="20" y="25" text-anchor="middle" fill="#fff" font-size="15" font-weight="800" font-family="Arial,sans-serif">F</text></svg></span><div><div class="pso-name">Forcepoint DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-fp" style="background:var(--purple-dim);color:var(--purple)"></span></div>
+        <div class="ps-option" data-p="msd"     onclick="switchPlatform('msd')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><path d="M20 5L8 10v9.5C8 27 13.5 33.5 20 35.5 26.5 33.5 32 27 32 19.5V10z" fill="#fff" opacity=".18" stroke="#fff" stroke-width="1.5"/><rect x="14" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="14" y="22" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="22" width="5" height="5" rx=".7" fill="#fff"/></svg></span><div><div class="pso-name">MS Defender</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-msd" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
+        <div class="ps-option" data-p="splunk"  onclick="switchPlatform('splunk')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#1C1C1C"/><path d="M11 11l18 9-18 9" stroke="#FF6600" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Splunk / SIEM</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-splunk" style="background:rgba(247,148,30,.15);color:#f7941e"></span></div>
+        <div class="ps-option" data-p="s1"      onclick="switchPlatform('s1')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4C1D95"/><path d="M27 15C27 11.1 23.9 8 20 8s-7 3.1-7 7c0 3.2 2.2 5 5 5.9l3.1 1 C23.8 22.8 27 24.7 27 28.2 27 32.5 23.9 35 20 35s-7-2.5-7-6.5" stroke="#fff" stroke-width="3.2" stroke-linecap="round" fill="none"/></svg></span><div><div class="pso-name">SentinelOne</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-s1" style="background:rgba(168,85,247,.15);color:#a855f7"></span></div>
+        <div class="ps-option" data-p="okta"    onclick="switchPlatform('okta')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0059B2"/><circle cx="20" cy="20" r="10" stroke="#fff" stroke-width="3.5" fill="none"/><circle cx="20" cy="20" r="4" fill="#fff"/></svg></span><div><div class="pso-name">Okta</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-okta" style="background:rgba(0,125,193,.15);color:#007dc1"></span></div>
+        <div class="ps-option" data-p="azure"   onclick="switchPlatform('azure')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><defs><linearGradient id="azg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0089D6"/><stop offset="100%" stop-color="#003F8A"/></linearGradient></defs><rect width="40" height="40" rx="8" fill="url(#azg)"/><path d="M20 6L8 34h7.5l4.5-9 4.5 9H32z" fill="#fff"/><path d="M16 25.5h8" stroke="#003F8A" stroke-width="2.5" fill="none"/></svg></span><div><div class="pso-name">Azure / Entra</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-azure" style="background:rgba(0,137,214,.15);color:#0089d6"></span></div>
+        <div class="ps-option" data-p="oort"    onclick="switchPlatform('oort')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4F46E5"/><ellipse cx="20" cy="20" rx="13" ry="6" stroke="#fff" stroke-width="2.2" fill="none"/><ellipse cx="20" cy="20" rx="6" ry="13" stroke="#fff" stroke-width="2.2" fill="none"/><circle cx="20" cy="20" r="3.5" fill="#fff"/></svg></span><div><div class="pso-name">OORT</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-oort" style="background:rgba(6,182,212,.15);color:#06b6d4"></span></div>
+        <div class="ps-option" data-p="gws"     onclick="switchPlatform('gws')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.5"/><path d="M20 7a13 13 0 00-9.2 22.2L15 25a8 8 0 0111.2-.7V20h5.8A13 13 0 0020 7z" fill="#4285F4"/><path d="M10.8 29.2L15 25a8 8 0 0010.5.5l4.2 4.2A13 13 0 0110.8 29.2z" fill="#34A853"/><path d="M7 20a13 13 0 003.8 9.2l4.2-4.2A8 8 0 0113 20a8 8 0 011.5-4.7l-4.3-4.3A13 13 0 007 20z" fill="#FBBC05"/><path d="M20 12a8 8 0 015.5 2.2l4.1-4.1A13 13 0 0010.2 11l4.3 4.3A8 8 0 0120 12z" fill="#EA4335"/></svg></span><div><div class="pso-name">Google Workspace</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-gws" style="background:rgba(234,67,53,.15);color:#ea4335"></span></div>
+        <div class="ps-option" data-p="extrahop" onclick="switchPlatform('extrahop')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#087A6E"/><path d="M4 22C7.5 22 7.5 15 12 15 17 15 17 25 21.5 25 26 25 26 12 30 12 34 12 34 20 38 20" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="37" cy="20" r="2.5" fill="#fff"/></svg></span><div><div class="pso-name">ExtraHop</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-extrahop" style="background:rgba(0,180,160,.15);color:#00b4a0"></span></div>
+        <div class="ps-option" data-p="aws"     onclick="switchPlatform('aws')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#232F3E"/><path d="M12 18a7 7 0 011-10.5A9 9 0 0130 9a6 6 0 012.5 11" stroke="#FF9900" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M10 28C14 33 26 33 30 28" stroke="#FF9900" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M27 26.5l3 1.5-1.5 3" stroke="#FF9900" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">AWS</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-aws" style="background:rgba(255,153,0,.15);color:#ff9900"></span></div>
       </div>
     </div>
 
@@ -483,7 +482,7 @@ function downloadCSV(rows,fn){
 // ════════════════════════════════════════════════════════════════
 const PLATFORMS = {
   pp:{
-    name:'Proofpoint',icon:'🛡',color:'#e91e8c',cls:'platform-pp',
+    name:'Proofpoint',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',color:'#e91e8c',cls:'platform-pp',
     modules:[
       {id:'dash',icon:'⬡',label:'Dashboard'},
       {id:'casb',icon:'☁',label:'CASB'},
@@ -500,7 +499,7 @@ const PLATFORMS = {
     ]
   },
   purview:{
-    name:'Microsoft Purview',icon:'🔷',color:'#0078d4',cls:'platform-purview',
+    name:'Microsoft Purview',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#0078D4"/><rect x="9" y="9" width="9" height="9" rx="1.5" fill="#F25022"/><rect x="22" y="9" width="9" height="9" rx="1.5" fill="#7FBA00"/><rect x="9" y="22" width="9" height="9" rx="1.5" fill="#00A4EF"/><rect x="22" y="22" width="9" height="9" rx="1.5" fill="#FFB900"/></svg>',color:'#0078d4',cls:'platform-purview',
     modules:[
       {id:'dash',icon:'⬡',label:'Dashboard'},
       {id:'dlp',icon:'🔒',label:'DLP Policies'},
@@ -512,7 +511,7 @@ const PLATFORMS = {
     ]
   },
   cs:{
-    name:'CrowdStrike',icon:'🦅',color:'#ef4444',cls:'platform-cs',
+    name:'CrowdStrike',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#C00"/><path d="M10 7 C10 7 24 6 30 13 C36 20 31 28 24 30 L31 36 L24 36 L17 27 C13 27 10 23 10 18 Z" fill="#fff"/><circle cx="24" cy="14" r="2.5" fill="#C00"/></svg>',color:'#ef4444',cls:'platform-cs',
     modules:[
       {id:'dash',icon:'⬡',label:'Dashboard'},
       {id:'prevention',icon:'🛡',label:'Prevention Policies'},
@@ -523,7 +522,7 @@ const PLATFORMS = {
     ]
   },
   zs:{
-    name:'Zscaler',icon:'☁',color:'#10b981',cls:'platform-zs',
+    name:'Zscaler',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#005DAA"/><path d="M29 19a7 7 0 00-13.5-2.2A5 5 0 0010 22a5 5 0 005 5h15a5 5 0 000-10z" fill="#fff"/><path d="M13 31h14l-14 0" stroke="#fff" stroke-width="0" fill="none"/></svg>',color:'#10b981',cls:'platform-zs',
     modules:[
       {id:'dash',icon:'⬡',label:'Dashboard'},
       {id:'urlfilter',icon:'🌐',label:'URL Filtering'},
@@ -534,7 +533,7 @@ const PLATFORMS = {
     ]
   },
   sym:{
-    name:'Symantec DLP',icon:'🔐',color:'#f59e0b',cls:'platform-sym',
+    name:'Symantec DLP',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#FDB81E"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="#fff" opacity=".95"/><path d="M14 20l4 4 8-8" stroke="#FDB81E" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',color:'#f59e0b',cls:'platform-sym',
     modules:[
       {id:'dash',icon:'⬡',label:'Dashboard'},
       {id:'policies',icon:'📋',label:'Detection Policies'},
@@ -544,7 +543,7 @@ const PLATFORMS = {
     ]
   },
   fp:{
-    name:'Forcepoint DLP',icon:'🔮',color:'#8b5cf6',cls:'platform-fp',
+    name:'Forcepoint DLP',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#6B21A8"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="none" stroke="#fff" stroke-width="2" opacity=".7"/><text x="20" y="25" text-anchor="middle" fill="#fff" font-size="15" font-weight="800" font-family="Arial,sans-serif">F</text></svg>',color:'#8b5cf6',cls:'platform-fp',
     modules:[
       {id:'dash',icon:'⬡',label:'Dashboard'},
       {id:'policies',icon:'📋',label:'Policies'},
@@ -553,39 +552,39 @@ const PLATFORMS = {
       {id:'admin',icon:'🔧',label:'Administration'},
     ]
   },
-  msd:{name:'Microsoft Defender',icon:'🪟',color:'#0078d4',cls:'platform-msd',modules:[
+  msd:{name:'Microsoft Defender',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#0078D4"/><path d="M20 5L8 10v9.5C8 27 13.5 33.5 20 35.5 26.5 33.5 32 27 32 19.5V10z" fill="#fff" opacity=".18" stroke="#fff" stroke-width="1.5"/><rect x="14" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="14" y="22" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="22" width="5" height="5" rx=".7" fill="#fff"/></svg>',color:'#0078d4',cls:'platform-msd',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'mde',icon:'💻',label:'MDE Policies'},
     {id:'mdo',icon:'✉',label:'MDO Policies'},{id:'mdca',icon:'☁',label:'MDCA App Gov'},
     {id:'asr',icon:'🛡',label:'ASR Rules'},{id:'admin',icon:'🔧',label:'Administration'}]},
-  splunk:{name:'Splunk / SIEM',icon:'🔎',color:'#f7941e',cls:'platform-splunk',modules:[
+  splunk:{name:'Splunk / SIEM',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#1C1C1C"/><path d="M11 11l18 9-18 9" stroke="#FF6600" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',color:'#f7941e',cls:'platform-splunk',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'alerts',icon:'🔔',label:'Saved Searches'},
     {id:'correlation',icon:'🔗',label:'Correlation Rules'},{id:'inputs',icon:'📥',label:'Data Inputs'},
     {id:'dashboards',icon:'📊',label:'Dashboards'},{id:'admin',icon:'🔧',label:'Administration'}]},
-  s1:{name:'SentinelOne',icon:'🟣',color:'#a855f7',cls:'platform-s1',modules:[
+  s1:{name:'SentinelOne',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#4C1D95"/><path d="M27 15C27 11.1 23.9 8 20 8s-7 3.1-7 7c0 3.2 2.2 5 5 5.9l3.1 1 C23.8 22.8 27 24.7 27 28.2 27 32.5 23.9 35 20 35s-7-2.5-7-6.5" stroke="#fff" stroke-width="3.2" stroke-linecap="round" fill="none"/></svg>',color:'#a855f7',cls:'platform-s1',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'policy',icon:'🛡',label:'Prevention Policy'},
     {id:'exclusions',icon:'⚪',label:'Exclusions'},{id:'network',icon:'🌐',label:'Network Control'},
     {id:'response',icon:'⚡',label:'Response Actions'},{id:'admin',icon:'🔧',label:'Administration'}]},
-  okta:{name:'Okta',icon:'🔵',color:'#007dc1',cls:'platform-okta',modules:[
+  okta:{name:'Okta',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#0059B2"/><circle cx="20" cy="20" r="10" stroke="#fff" stroke-width="3.5" fill="none"/><circle cx="20" cy="20" r="4" fill="#fff"/></svg>',color:'#007dc1',cls:'platform-okta',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'signon',icon:'🔑',label:'Sign-On Policies'},
     {id:'mfa',icon:'📱',label:'MFA Policies'},{id:'provisioning',icon:'👤',label:'Provisioning'},
     {id:'apps',icon:'📱',label:'App Access'},{id:'admin',icon:'🔧',label:'Administration'}]},
-  azure:{name:'Azure / Entra ID',icon:'☁',color:'#0089d6',cls:'platform-azure',modules:[
+  azure:{name:'Azure / Entra ID',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><defs><linearGradient id="azg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0089D6"/><stop offset="100%" stop-color="#003F8A"/></linearGradient></defs><rect width="40" height="40" rx="8" fill="url(#azg)"/><path d="M20 6L8 34h7.5l4.5-9 4.5 9H32z" fill="#fff"/><path d="M16 25.5h8" stroke="#003F8A" stroke-width="2.5" fill="none"/></svg>',color:'#0089d6',cls:'platform-azure',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'condaccess',icon:'🔒',label:'Conditional Access'},
     {id:'identity',icon:'👤',label:'Identity & Roles'},{id:'defender',icon:'🛡',label:'Defender for Cloud'},
     {id:'policies',icon:'📋',label:'Resource Policies'},{id:'admin',icon:'🔧',label:'Administration'}]},
-  oort:{name:'OORT',icon:'🌀',color:'#06b6d4',cls:'platform-oort',modules:[
+  oort:{name:'OORT',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#4F46E5"/><ellipse cx="20" cy="20" rx="13" ry="6" stroke="#fff" stroke-width="2.2" fill="none"/><ellipse cx="20" cy="20" rx="6" ry="13" stroke="#fff" stroke-width="2.2" fill="none"/><circle cx="20" cy="20" r="3.5" fill="#fff"/></svg>',color:'#06b6d4',cls:'platform-oort',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'identityrisk',icon:'⚠',label:'Identity Risk'},
     {id:'stale',icon:'📅',label:'Stale Accounts'},{id:'privileged',icon:'🔐',label:'Privileged Access'},
     {id:'admin',icon:'🔧',label:'Administration'}]},
-  gws:{name:'Google Workspace',icon:'🔴',color:'#ea4335',cls:'platform-gws',modules:[
+  gws:{name:'Google Workspace',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.5"/><path d="M20 7a13 13 0 00-9.2 22.2L15 25a8 8 0 0111.2-.7V20h5.8A13 13 0 0020 7z" fill="#4285F4"/><path d="M10.8 29.2L15 25a8 8 0 0010.5.5l4.2 4.2A13 13 0 0110.8 29.2z" fill="#34A853"/><path d="M7 20a13 13 0 003.8 9.2l4.2-4.2A8 8 0 0113 20a8 8 0 011.5-4.7l-4.3-4.3A13 13 0 007 20z" fill="#FBBC05"/><path d="M20 12a8 8 0 015.5 2.2l4.1-4.1A13 13 0 0010.2 11l4.3 4.3A8 8 0 0120 12z" fill="#EA4335"/></svg>',color:'#ea4335',cls:'platform-gws',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'security',icon:'🛡',label:'Security Settings'},
     {id:'dlp',icon:'🔒',label:'DLP Rules'},{id:'appaccess',icon:'📱',label:'App Access'},
     {id:'users',icon:'👤',label:'Users & Groups'},{id:'admin',icon:'🔧',label:'Administration'}]},
-  extrahop:{name:'ExtraHop',icon:'📡',color:'#00b4a0',cls:'platform-extrahop',modules:[
+  extrahop:{name:'ExtraHop',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#087A6E"/><path d="M4 22C7.5 22 7.5 15 12 15 17 15 17 25 21.5 25 26 25 26 12 30 12 34 12 34 20 38 20" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="37" cy="20" r="2.5" fill="#fff"/></svg>',color:'#00b4a0',cls:'platform-extrahop',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'detections',icon:'🔍',label:'Detection Rules'},
     {id:'triggers',icon:'⚡',label:'Triggers'},{id:'network',icon:'🌐',label:'Network Policies'},
     {id:'admin',icon:'🔧',label:'Administration'}]},
-  aws:{name:'AWS',icon:'🟠',color:'#ff9900',cls:'platform-aws',modules:[
+  aws:{name:'AWS',icon:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;margin-right:5px;"><rect width="40" height="40" rx="8" fill="#232F3E"/><path d="M12 18a7 7 0 011-10.5A9 9 0 0130 9a6 6 0 012.5 11" stroke="#FF9900" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M10 28C14 33 26 33 30 28" stroke="#FF9900" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M27 26.5l3 1.5-1.5 3" stroke="#FF9900" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',color:'#ff9900',cls:'platform-aws',modules:[
     {id:'dash',icon:'⬡',label:'Dashboard'},{id:'iam',icon:'👤',label:'IAM Policies'},
     {id:'secgroups',icon:'🔥',label:'Security Groups'},{id:'guardduty',icon:'🛡',label:'GuardDuty'},
     {id:'cloudtrail',icon:'📋',label:'CloudTrail'},{id:'admin',icon:'🔧',label:'Administration'}]},
@@ -614,9 +613,9 @@ function launchPlatform(pid){
   document.getElementById('app').style.display='flex';
   const p=PLATFORMS[pid];
   // topbar
-  document.getElementById('topbar-icon').textContent=p.icon;
+  document.getElementById('topbar-icon').innerHTML=p.icon;
   document.getElementById('topbar-name').textContent=p.name;
-  document.getElementById('ps-icon').textContent=p.icon;
+  document.getElementById('ps-icon').innerHTML=p.icon;
   document.getElementById('ps-name').textContent=p.name;
   // sidebar class
   document.getElementById('sidebar').className='sidebar '+p.cls;
