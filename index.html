@@ -658,6 +658,25 @@ function launchPlatform(pid){
   try{
     const stored=JSON.parse(localStorage.getItem(lsKey(pid))||'{}');
     const defs=MODULE_DEFS[pid]||{};
+    // For Proofpoint: if all data is stored under 'casb', re-split by category
+    if(pid==='pp'&&stored.casb&&stored.casb.length){
+      const categoryMap={access:'casb',data:'dlp',app_governance:'casb',configuration_and_security_posture:'casb'};
+      const hasCategoryField=stored.casb[0]&&stored.casb[0].category!==undefined;
+      if(hasCategoryField){
+        const buckets={};
+        stored.casb.forEach(r=>{
+          const mid=categoryMap[r.category]||'casb';
+          if(!buckets[mid])buckets[mid]=[];
+          buckets[mid].push(r);
+        });
+        // Save split data back to storage
+        Object.entries(buckets).forEach(([mid,records])=>{
+          saveToStorage(pid,mid,records);
+        });
+        // Reload stored with split data
+        Object.assign(stored, buckets);
+      }
+    }
     Object.keys(stored).forEach(mid=>{
       if(defs[mid]&&stored[mid]&&stored[mid].length){
         processModule(pid,mid,stored[mid],false);
