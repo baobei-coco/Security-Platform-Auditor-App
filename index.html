@@ -260,6 +260,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .data-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:6px;vertical-align:middle;flex-shrink:0;}
 .data-dot.stored{background:#22c55e;box-shadow:0 0 4px #22c55e88;}
 .data-dot.demo{background:var(--text3);opacity:.4;}
+
+.stored-bar{display:none;align-items:center;gap:8px;padding:6px 14px;
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);
+  border-radius:7px;font-size:12px;color:#22c55e;font-weight:600;margin:0 0 6px;}
+.stored-bar.visible{display:flex;}
 </style>
 </head>
 <body>
@@ -622,6 +627,17 @@ function launchPlatform(pid){
   document.getElementById('sidebar').className='sidebar '+p.cls;
   // build sidebar + main
   buildSidebarAndMain(pid);
+  // Auto-load any previously imported data for this platform
+  try{
+    const stored=JSON.parse(localStorage.getItem(lsKey(pid))||'{}');
+    const defs=MODULE_DEFS[pid]||{};
+    Object.keys(stored).forEach(mid=>{
+      if(defs[mid]&&stored[mid]&&stored[mid].length){
+        processModule(pid,mid,stored[mid],false);
+      }
+    });
+    updateSidebarDataDots(pid);
+  }catch(e){console.warn('autoLoad failed:',e);}
   switchModule('dash');
   // mark dropdown active
   document.querySelectorAll('.ps-option').forEach(el=>{
@@ -780,10 +796,18 @@ function closeImportModal(){
 }
 // ── Bulk file import — routes entire file to a single module ──────────────────
 function bulkImport(pid){
+  // Remove any old input to avoid stacking
+  const old=document.getElementById('_bulkInput');if(old)old.remove();
   const input=document.createElement('input');
-  input.type='file';input.accept='.json,.csv';
+  input.id='_bulkInput';
+  input.type='file';
+  input.accept='.json,.csv';
+  input.style.display='none';
+  document.body.appendChild(input);
   input.onchange=e=>{
-    const file=e.target.files[0];if(!file)return;
+    const file=e.target.files[0];
+    input.remove();
+    if(!file)return;
     const reader=new FileReader();
     reader.onload=ev=>{
       try{
@@ -791,21 +815,21 @@ function bulkImport(pid){
         if(file.name.endsWith('.csv')) data=parseCSV(ev.target.result);
         else{
           data=JSON.parse(ev.target.result);
-          // unwrap common wrapper keys
           if(!Array.isArray(data)&&typeof data==='object'){
             for(const k of['rules','policies','data','items','users','findings','detections'])
               if(data[k]&&Array.isArray(data[k])){data=data[k];break;}
           }
         }
-        if(!Array.isArray(data)){showImportToast('⚠ Could not parse file as a record array');return;}
-        // Route to the first non-dash module of the platform (casb for pp)
+        if(!Array.isArray(data)){showImportToast('⚠ Could not parse as record array');return;}
+        // Route to current module if not dash, else first module
         const p=PLATFORMS[pid];
-        const firstMod=p.modules.find(m=>m.id!=='dash');
-        if(!firstMod)return;
-        saveToStorage(pid,firstMod.id,data);
-        processModule(pid,firstMod.id,data,false);
+        const targetMid=(currentModule&&currentModule!=='dash')?currentModule:p.modules.find(m=>m.id!=='dash').id;
+        saveToStorage(pid,targetMid,data);
+        processModule(pid,targetMid,data,false);
         updateSidebarDataDots(pid);
-        showImportToast(`✓ Imported ${data.length} records → ${firstMod.label}`);
+        // Switch to the module so user sees results immediately
+        switchModule(targetMid);
+        showImportToast(`✓ Imported ${data.length} records → ${p.modules.find(m=>m.id===targetMid)?.label||targetMid}`);
       }catch(err){showImportToast('⚠ Import failed: '+err.message);}
     };
     reader.readAsText(file);
@@ -987,8 +1011,15 @@ function processModule(pid,mid,data,isDemo){
   const result=def.analyze(data);
   def.render(pid,mid,result);
   if(!PLATFORM_STATE[pid])PLATFORM_STATE[pid]={};
-  PLATFORM_STATE[pid][mid]={result,isDemo};
-  if(isDemo)document.getElementById(`${pid}-${mid}-demo`).style.display='flex';
+  PLATFORM_STATE[pid][mid]={result,isDemo,data};
+  const demoBar=document.getElementById(`${pid}-${mid}-demo`);
+  const storedBar=document.getElementById(`${pid}-${mid}-stored`);
+  if(demoBar) demoBar.style.display=isDemo?'flex':'none';
+  if(storedBar){
+    storedBar.classList.toggle('visible',!isDemo);
+    const cntEl=document.getElementById(`${pid}-${mid}-stored-count`);
+    if(cntEl&&!isDemo) cntEl.textContent=Array.isArray(data)?data.length+' records':'';
+  }
   renderDashboard(pid);
   // Update dropdown badge
   const totalIssues=Object.values(PLATFORM_STATE[pid]).reduce((sum,m)=>sum+(m.result?Object.values(m.result.issues||{}).flat().length:0),0);
