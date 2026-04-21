@@ -677,7 +677,6 @@ function launchPlatform(pid){
         Object.entries(buckets).forEach(([m,recs])=>{saveToStorage(pid,m,recs);stored[m]=recs;});
       }
     }
-    }
     Object.keys(stored).forEach(mid=>{
       if(defs[mid]&&stored[mid]&&stored[mid].length){
         processModule(pid,mid,stored[mid],false);
