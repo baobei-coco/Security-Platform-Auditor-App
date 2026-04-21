@@ -1074,37 +1074,104 @@ const MODULE_DEFS = {
 pp:{
   casb:{
     demo:()=>[
-      {id:'c01',name:'Block External Share - SharePoint',enabled:true,app:'Microsoft SharePoint',activity:'Share File Externally',userScope:'All Users',remediations:['Block'],notifications:['Admin'],priority:10,policyType:'DLP'},
-      {id:'c02',name:'Block External Share SP Copy',enabled:true,app:'Microsoft SharePoint',activity:'Share File Externally',userScope:'All Users',remediations:['Block'],notifications:[],priority:20,policyType:'DLP'},
-      {id:'c03',name:'Monitor All Activity',enabled:true,app:'All Apps',activity:'All',userScope:'All Users',remediations:[],notifications:[],priority:60,policyType:'Monitoring'},
-      {id:'c04',name:'Test Rule',enabled:false,app:'Salesforce',activity:'Export',userScope:'Sales',remediations:[],notifications:[],priority:40,policyType:'DLP'},
-      {id:'c05',name:'AAC - High Risk Block',enabled:true,app:'Microsoft 365',activity:'Login',userScope:'All Users',remediations:['Block'],notifications:['Admin'],priority:10,policyType:'AAC'},
-      {id:'c06',name:'AAC - Default (missing Allow)',enabled:true,app:'Microsoft 365',activity:'Login',userScope:'All Users',remediations:['Block'],notifications:[],priority:30,policyType:'AAC'},
-      {id:'c07',name:'Alert Download OneDrive',enabled:true,app:'Microsoft OneDrive',activity:'Download',userScope:'All Users',remediations:[],notifications:['Admin'],priority:30,policyType:'DLP'},
+      {id:'c01',name:'Block External Share - SharePoint',isActive:true,applications:[{name:'office365'}],remediationActions:{'34':[{name:'Block'}]},notifications:{platform:{templates:[{name:'Admin Alert'}]}},priority:10,severity:'HIGH',category:'data',tags:['dlp']},
+      {id:'c02',name:'Monitor All Activity',isActive:true,applications:[{name:'office365'},{name:'gsuite'}],remediationActions:{},notifications:{platform:{templates:[]}},priority:20,severity:'LOW',category:'data',tags:[]},
+      {id:'c03',name:'Test Rule - Disabled',isActive:false,applications:[{name:'github'}],remediationActions:{},notifications:{platform:{templates:[]}},priority:5,severity:'MEDIUM',category:'access',tags:['test']},
+      {id:'c04',name:'Suspicious Login Block',isActive:true,applications:[{name:'gsuite'}],remediationActions:{'1':[{name:'Suspend user'}]},notifications:{platform:{templates:[{name:'CASB - Admin Notification'}]}},priority:0,severity:'CRITICAL',category:'access',tags:['it-tag-suspicious-login']},
     ],
+    _normalize(r){
+      // Normalize both real Proofpoint CASB exports and demo data
+      const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+      const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+      const hasRemediation=remActions.length>0;
+      const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+      const hasNotification=notifTemplates.length>0||(r.notifications?.admin!=null)||(r.notifications?.endUser!=null);
+      const tags=(r.tags||[]);
+      const isActive=r.isActive!==undefined?r.isActive:r.enabled!==false;
+      return {id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,severity:(r.severity||'').toUpperCase(),category:r.category||'',appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags};
+    },
     analyze(rules){
-      const issues={overlap:[],disabled:[],noAction:[],broadScope:[],aacMissing:[],coverage:[]};
-      rules.filter(r=>!r.enabled).forEach(r=>issues.disabled.push({sev:'warning',name:r.name,detail:'Rule disabled — not enforced.',tags:[{v:'DISABLED',c:'y'}],rec:'Delete or re-enable.'}));
-      rules.filter(r=>r.enabled&&!r.remediations?.length&&!r.notifications?.length).forEach(r=>issues.noAction.push({sev:'warning',name:r.name,detail:'Enabled but no remediations or notifications.',tags:[{v:'NO ACTION',c:'y'},{v:r.app}],rec:'Add a remediation or notification, or delete.'}));
-      rules.filter(r=>r.enabled&&['all apps','all','*',''].includes(String(r.app).toLowerCase())&&['all users','all','*','everyone',''].includes(String(r.userScope).toLowerCase())).forEach(r=>issues.broadScope.push({sev:'info',name:r.name,detail:'All Apps + All Users — high noise, low precision.',tags:[{v:'BROAD SCOPE',c:'b'}],rec:'Scope to Entra ID groups.'}));
-      const fp={};rules.forEach(r=>{const k=[String(r.app).toLowerCase(),String(r.activity).toLowerCase(),String(r.userScope).toLowerCase()].join('|');if(!fp[k])fp[k]=[];fp[k].push(r);});
-      Object.values(fp).filter(g=>g.length>1).forEach(g=>{const s=[...g].sort((a,b)=>a.priority-b.priority);s.slice(1).forEach(r=>issues.overlap.push({sev:'critical',name:r.name,detail:`Shadowed by "${s[0].name}" (priority ${s[0].priority}).`,tags:[{v:'SHADOWED',c:'r'},{v:r.app}],rec:'Remove or differentiate scope.'}));});
-      const aac=rules.filter(r=>/aac|adaptive/i.test(r.policyType||''));
-      const aacMap={};aac.forEach(r=>{if(!aacMap[r.policyType])aacMap[r.policyType]=[];aacMap[r.policyType].push(r);});
-      Object.entries(aacMap).forEach(([pt,g])=>{const last=[...g].sort((a,b)=>b.priority-a.priority)[0];if(!last.remediations?.some(a=>/allow/i.test(String(a))))issues.aacMissing.push({sev:'critical',name:`AAC ${pt}: missing default Allow`,detail:`Last rule "${last.name}" is not Allow.`,tags:[{v:'AAC',c:'p'},{v:'MISSING ALLOW',c:'r'}],rec:'Add a catch-all Allow as the final AAC rule.'});});
-      const apps=new Set(rules.filter(r=>r.enabled).map(r=>String(r.app).toLowerCase()));
-      ['google drive','box','dropbox','slack','github','salesforce'].forEach(a=>{if(!apps.has(a))issues.coverage.push({sev:'info',name:`No rules for: ${a}`,detail:'Common app with no active CASB rules.',tags:[{v:'GAP',c:'b'},{v:a}],rec:`Add monitoring/enforcement rules for ${a}.`});});
-      return makeResult(issues,calcScore(issues,{overlap:15,aacMissing:20,disabled:5,noAction:8,broadScope:5,coverage:3}),rules,'rules');
+      const self=MODULE_DEFS.pp.casb;
+      const norm=rules.map(r=>self._normalize(r));
+      const issues={noRemediation:[],noNotification:[],disabled:[],dupPriority:[],testRules:[],coverage:[]};
+
+      // Disabled rules
+      norm.filter(r=>!r.isActive).forEach(r=>{
+        const appTags=(r.appNames?[{v:r.appNames,c:''}]:[]);
+        const sevTag=r.severity?[{v:r.severity,c:r.severity==='CRITICAL'?'r':r.severity==='HIGH'?'r':r.severity==='MEDIUM'?'y':'b'}]:[];
+        issues.disabled.push({sev:'warning',name:r.name,
+          detail:`Rule is inactive and not enforced. Category: ${r.category||'—'}`,
+          tags:[{v:'INACTIVE',c:'y'},...sevTag,...appTags],
+          rec:'Re-enable if still required, or delete to reduce clutter.'});
+      });
+
+      // Active rules with no remediation actions
+      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
+        const appTags=r.appNames?[{v:r.appNames,c:''}]:[];
+        const sevTag=r.severity?[{v:r.severity,c:r.severity==='CRITICAL'?'r':r.severity==='HIGH'?'r':r.severity==='MEDIUM'?'y':'b'}]:[];
+        issues.noRemediation.push({sev:r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning',
+          name:r.name,
+          detail:`Active rule with no remediation actions — alert-only or misconfigured. Apps: ${r.appNames}`,
+          tags:[{v:'NO REMEDIATION',c:'y'},...sevTag,...appTags],
+          rec:'Add remediation actions (e.g. Revoke Session, Suspend User) or confirm alert-only is intentional.'});
+      });
+
+      // Active rules with no notifications
+      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+        const sevTag=r.severity?[{v:r.severity,c:r.severity==='CRITICAL'?'r':r.severity==='HIGH'?'r':r.severity==='MEDIUM'?'y':'b'}]:[];
+        issues.noNotification.push({sev:'warning',name:r.name,
+          detail:`No notification templates configured — rule fires silently. Apps: ${r.appNames}`,
+          tags:[{v:'SILENT',c:'y'},...sevTag],
+          rec:'Add platform notification templates so alerts reach the security team.'});
+      });
+
+      // Duplicate priority values (potential shadowing)
+      const byPriority={};
+      norm.filter(r=>r.isActive).forEach(r=>{
+        if(!byPriority[r.priority])byPriority[r.priority]=[];
+        byPriority[r.priority].push(r);
+      });
+      Object.entries(byPriority).filter(([,g])=>g.length>1).forEach(([p,g])=>{
+        g.forEach(r=>issues.dupPriority.push({sev:'warning',name:r.name,
+          detail:`Shares priority ${p} with ${g.length-1} other active rule(s): ${g.filter(x=>x.id!==r.id).map(x=>x.name).join(', ')}`,
+          tags:[{v:`PRIORITY ${p}`,c:'y'},{v:r.appNames}],
+          rec:'Assign unique priorities to ensure predictable rule evaluation order.'}));
+      });
+
+      // Test/staging rules still active
+      norm.filter(r=>r.isActive&&/test|testing|staging|temp|draft/i.test(r.name)).forEach(r=>{
+        issues.testRules.push({sev:'warning',name:r.name,
+          detail:`Rule name suggests it is a test or staging rule but is currently active. Apps: ${r.appNames}`,
+          tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
+          rec:'Disable or remove test rules from production, or rename if fully approved.'});
+      });
+
+      // Coverage gaps — apps with no active rules
+      const coveredApps=new Set(norm.filter(r=>r.isActive).map(r=>r.appNames.toLowerCase()));
+      ['github','zoom','box','dropbox','slack','salesforce'].forEach(a=>{
+        if(![...coveredApps].some(c=>c.includes(a)))
+          issues.coverage.push({sev:'info',name:`No active rules: ${a}`,
+            detail:`No active CASB rules found covering ${a}.`,
+            tags:[{v:'GAP',c:'b'},{v:a}],
+            rec:`Review whether ${a} is in scope and add rules if needed.`});
+      });
+
+      return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:6,coverage:3}),rules,'rules');
     },
     render(pid,mid,result){
-      wrapRender(pid,mid,result,'Rule overlap, dead rules, AAC misconfigurations, coverage gaps',
-        [{n:result.rules.length,l:'Rules',c:'blue'},{n:result.rules.filter(r=>r.enabled).length,l:'Enabled',c:'green'},{n:result.issues.overlap.length,l:'Shadowed',c:'red'},{n:result.issues.disabled.length,l:'Disabled',c:'yellow'},{n:result.issues.aacMissing.length,l:'AAC Issues',c:'red'}],
-        [{id:`${pid}-${mid}-ov`,icon:'🔴',title:'Shadowed Rules',desc:'Lower-priority rules that may never fire',issues:result.issues.overlap},
-         {id:`${pid}-${mid}-aac`,icon:'🚨',title:'AAC Missing Default Allow',desc:'AAC chains without catch-all Allow',issues:result.issues.aacMissing},
-         {id:`${pid}-${mid}-na`,icon:'⚡',title:'No Action',desc:'Silent rules',issues:result.issues.noAction},
-         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Disabled',desc:'Off rules',issues:result.issues.disabled},
-         {id:`${pid}-${mid}-bs`,icon:'🌐',title:'Broad Scope',desc:'All Apps + All Users',issues:result.issues.broadScope},
-         {id:`${pid}-${mid}-cov`,icon:'🔍',title:'Coverage Gaps',desc:'Unmonitored apps',issues:result.issues.coverage}]);
+      const norm=result.rules.map(r=>MODULE_DEFS.pp.casb._normalize(r));
+      const active=norm.filter(r=>r.isActive).length;
+      const withRem=norm.filter(r=>r.isActive&&r.hasRemediation).length;
+      const withNotif=norm.filter(r=>r.isActive&&r.hasNotification).length;
+      const critical=norm.filter(r=>r.severity==='CRITICAL').length;
+      wrapRender(pid,mid,result,'Rule coverage, remediation gaps, notification gaps, priority conflicts',
+        [{n:norm.length,l:'Total Rules',c:'blue'},{n:active,l:'Active',c:'green'},{n:critical,l:'Critical Sev',c:'red'},{n:withRem,l:'Has Remediation',c:'green'},{n:withNotif,l:'Has Notification',c:'blue'}],
+        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Active rules that only alert — no automated response',issues:result.issues.noRemediation},
+         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'No Notifications',desc:'Rules that fire silently with no alert templates',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Rules sharing the same priority — unpredictable ordering',issues:result.issues.dupPriority},
+         {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test or staging rules still enabled in production',issues:result.issues.testRules},
+         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules — confirm intentional or remove',issues:result.issues.disabled},
+         {id:`${pid}-${mid}-cov`,icon:'🔍',title:'Coverage Gaps',desc:'Common apps with no active rules',issues:result.issues.coverage}]);
     }
   },
   email:{
