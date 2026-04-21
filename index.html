@@ -1409,7 +1409,7 @@ pp:{
       const withRem=norm.filter(r=>r.isActive&&r.hasRemediation).length;
       const withNotif=norm.filter(r=>r.isActive&&r.hasNotification).length;
       const critical=norm.filter(r=>r.severity==='CRITICAL').length;
-      wrapRender(pid,mid,result,'Rule coverage, remediation gaps, notification gaps, priority conflicts',
+      wrapRender(pid,mid,result,'All access rules — suspicious login, VAP account takeover, risk group, TOR login',
         [{n:norm.length,l:'Total Rules',c:'blue'},
          {n:active,l:'Active',c:'green'},
          {n:critical,l:'Critical Sev',c:'red',link:`${pid}-${mid}-nr`},
@@ -1988,7 +1988,7 @@ pp:{
       const active=norm.filter(r=>r.isActive).length;
       const withRem=norm.filter(r=>r.isActive&&r.hasRem).length;
       const critical=norm.filter(r=>r.severity==='CRITICAL').length;
-      wrapRender(pid,mid,result,'Third-party app authorization — risky apps, AI apps, malicious authorizations',
+      wrapRender(pid,mid,result,'All app governance rules — 3rd-party authorization, malicious apps, AI app detection, block enforcement',
         [{n:norm.length,l:'Total Rules',c:'blue'},{n:active,l:'Active',c:'green'},
          {n:critical,l:'Critical Sev',c:'red',link:`${pid}-${mid}-nr`},
          {n:active-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
