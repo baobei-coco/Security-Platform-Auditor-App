@@ -848,15 +848,39 @@ function bulkImport(pid){
           }
         }
         if(!Array.isArray(data)){showImportToast('⚠ Could not parse as record array');return;}
-        // Route to current module if not dash, else first module
         const p=PLATFORMS[pid];
-        const targetMid=(currentModule&&currentModule!=='dash')?currentModule:p.modules.find(m=>m.id!=='dash').id;
-        saveToStorage(pid,targetMid,data);
-        processModule(pid,targetMid,data,false);
-        updateSidebarDataDots(pid);
-        // Switch to the module so user sees results immediately
-        switchModule(targetMid);
-        showImportToast(`✓ Imported ${data.length} records → ${p.modules.find(m=>m.id===targetMid)?.label||targetMid}`);
+        // Auto-split Proofpoint CASB exports by category field
+        const hasCategoryField=data.length>0&&data[0].category!==undefined;
+        if(pid==='pp'&&hasCategoryField){
+          const categoryMap={access:'casb',data:'dlp',app_governance:'casb',configuration_and_security_posture:'casb'};
+          const buckets={};
+          data.forEach(r=>{
+            const mid=categoryMap[r.category]||'casb';
+            if(!buckets[mid])buckets[mid]=[];
+            buckets[mid].push(r);
+          });
+          let count=0;
+          Object.entries(buckets).forEach(([mid,records])=>{
+            if(MODULE_DEFS[pid]&&MODULE_DEFS[pid][mid]){
+              saveToStorage(pid,mid,records);
+              processModule(pid,mid,records,false);
+              count+=records.length;
+            }
+          });
+          updateSidebarDataDots(pid);
+          const summary=Object.entries(buckets).map(([m,r])=>`${m}: ${r.length}`).join(', ');
+          showImportToast(`✓ Auto-split ${count} records — ${summary}`);
+          const firstMid=Object.keys(buckets)[0];
+          if(firstMid)switchModule(firstMid);
+        } else {
+          // Route to current module if not dash, else first module
+          const targetMid=(currentModule&&currentModule!=='dash')?currentModule:p.modules.find(m=>m.id!=='dash').id;
+          saveToStorage(pid,targetMid,data);
+          processModule(pid,targetMid,data,false);
+          updateSidebarDataDots(pid);
+          switchModule(targetMid);
+          showImportToast(`✓ Imported ${data.length} records → ${p.modules.find(m=>m.id===targetMid)?.label||targetMid}`);
+        }
       }catch(err){showImportToast('⚠ Import failed: '+err.message);}
     };
     reader.readAsText(file);
@@ -1324,27 +1348,100 @@ pp:{
   },
   dlp:{
     demo:()=>[
-      {id:'d01',name:'PII - SSN Email',enabled:true,classifier:'SSN',channel:'Email Outbound',action:'Block',notify:'Admin',scope:'All Users'},
-      {id:'d02',name:'PHI - Medical',enabled:true,classifier:'PHI',channel:'Email Outbound',action:'Quarantine',notify:'',scope:'All Users'},
-      {id:'d03',name:'IP - Source Code',enabled:true,classifier:'Source Code',channel:'Email Outbound',action:'',notify:'',scope:'All Users'},
-      {id:'d04',name:'Financial Monitor',enabled:false,classifier:'Financial',channel:'All',action:'Alert',notify:'Admin',scope:'All Users'},
-      {id:'d05',name:'Broad Monitor',enabled:true,classifier:'All',channel:'All',action:'',notify:'Admin',scope:'All Users'},
+      {ruleId:'d01',name:'GWS/Malicious Content Sharing',isActive:true,applications:[{name:'Google Apps'}],remediationActions:{'60':[]},notifications:{platform:{templates:[{name:'CASB - Admin Notification - Malicious Content Sharing'}]},admin:{isActive:false},endUser:{isActive:false}},priority:0,severity:'CRITICAL',category:'data',tags:['it-tag-data-leakage'],activities:[{name:'Content Sharing'}]},
+      {ruleId:'d02',name:'O365/Sensitive Data Download',isActive:true,applications:[{name:'office365'}],remediationActions:{'34':[{name:'Block Download'}]},notifications:{platform:{templates:[{name:'CASB - DLP Alert'}]},admin:{isActive:false},endUser:{isActive:false}},priority:5,severity:'HIGH',category:'data',tags:['it-tag-data-leakage'],activities:[{name:'Content Download'}]},
+      {ruleId:'d03',name:'GWS/Public Repo Sharing',isActive:false,applications:[{name:'Google Apps'}],remediationActions:{},notifications:{platform:{templates:[]},admin:{isActive:false},endUser:{isActive:false}},priority:10,severity:'MEDIUM',category:'data',tags:['it-tag-data-exposure'],activities:[{name:'Repository Public Sharing'}]},
     ],
     analyze(rules){
-      const issues={noAction:[],disabled:[],broadScope:[],coverage:[]};
-      rules.filter(r=>r.enabled&&!r.action&&!r.notify).forEach(r=>issues.noAction.push({sev:'critical',name:r.name,detail:`Detects ${r.classifier} but takes no action.`,tags:[{v:'NO ACTION',c:'r'},{v:r.classifier}],rec:'Add Block or at minimum an admin notification.'}));
-      rules.filter(r=>!r.enabled).forEach(r=>issues.disabled.push({sev:'warning',name:r.name,detail:`Disabled — ${r.classifier} not enforced on ${r.channel}.`,tags:[{v:'DISABLED',c:'y'}],rec:'Enable or delete.'}));
-      rules.filter(r=>r.enabled&&(String(r.classifier).toLowerCase()==='all'||String(r.channel).toLowerCase()==='all')).forEach(r=>issues.broadScope.push({sev:'info',name:r.name,detail:'All-classifier or all-channel scope — high false positives.',tags:[{v:'BROAD',c:'b'}],rec:'Narrow to specific classifiers/channels.'}));
-      [{k:'SSN',l:'SSN'},{k:'PHI',l:'PHI/HIPAA'},{k:'Credit Card',l:'PCI'},{k:'EU PII',l:'GDPR'}].forEach(c=>{if(!rules.some(r=>r.enabled&&r.classifier===c.k&&r.action))issues.coverage.push({sev:'warning',name:`No enforcement for: ${c.l}`,detail:`No active DLP policy with action covers ${c.l}.`,tags:[{v:'GAP',c:'y'},{v:c.l}],rec:`Create or enable a policy covering ${c.l}.`});});
-      return makeResult(issues,calcScore(issues,{noAction:20,disabled:5,coverage:10,broadScope:5}),rules,'rules');
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const hasRemediation=remActions.length>0;
+        const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+        const hasNotification=notifTemplates.length>0||(r.notifications?.admin!=null&&r.notifications.admin?.isActive)||(r.notifications?.endUser!=null&&r.notifications.endUser?.isActive);
+        const activities=(r.activities||[]).map(a=>a.name||a).join(', ');
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
+          severity:(r.severity||'').toUpperCase(),category:r.category||'',
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,
+          activities,tags:(r.tags||[])};
+      };
+      const norm=rules.map(r=>_norm(r));
+      const issues={noRemediation:[],noNotification:[],inactive:[],dupPriority:[],testRules:[]};
+
+      // Active rules with no remediation
+      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
+        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
+        const sevTag=r.severity?[{v:r.severity,c:sev==='critical'?'r':'y'}]:[];
+        issues.noRemediation.push({sev,name:r.name,
+          detail:`Alert-only DLP rule — no automated response. Apps: ${r.appNames}. Activity: ${r.activities||'—'}`,
+          tags:[{v:'NO REMEDIATION',c:'y'},...sevTag,{v:r.appNames}],
+          rec:'Add remediation action (e.g. Block Download, Revoke Share) or confirm alert-only is intentional.'});
+      });
+
+      // Active rules with no notifications
+      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+        const sevTag=r.severity?[{v:r.severity,c:r.severity==='CRITICAL'||r.severity==='HIGH'?'r':'y'}]:[];
+        issues.noNotification.push({sev:'warning',name:r.name,
+          detail:`DLP rule fires silently — no notification templates. Apps: ${r.appNames}`,
+          tags:[{v:'SILENT',c:'y'},...sevTag],
+          rec:'Add platform notification template so DLP alerts reach the security team.'});
+      });
+
+      // Inactive rules
+      norm.filter(r=>!r.isActive).forEach(r=>{
+        const sevTag=r.severity?[{v:r.severity,c:'b'}]:[];
+        issues.inactive.push({sev:'warning',name:r.name,
+          detail:`DLP rule inactive. Apps: ${r.appNames}. Activity: ${r.activities||'—'}`,
+          tags:[{v:'INACTIVE',c:'y'},...sevTag,{v:r.appNames}],
+          rec:'Re-enable if still required, or delete to reduce noise.'});
+      });
+
+      // Duplicate priorities
+      const byPrio={};
+      norm.filter(r=>r.isActive).forEach(r=>{
+        if(!byPrio[r.priority])byPrio[r.priority]=[];
+        byPrio[r.priority].push(r);
+      });
+      Object.entries(byPrio).filter(([,g])=>g.length>1).forEach(([p,g])=>{
+        g.forEach(r=>issues.dupPriority.push({sev:'warning',name:r.name,
+          detail:`Shares priority ${p} with ${g.length-1} other active DLP rule(s).`,
+          tags:[{v:`PRIORITY ${p}`,c:'y'},{v:r.appNames}],
+          rec:'Assign unique priorities to ensure predictable DLP rule evaluation.'}));
+      });
+
+      // Test rules still active
+      norm.filter(r=>r.isActive&&/test|testing|staging|temp|draft/i.test(r.name)).forEach(r=>{
+        issues.testRules.push({sev:'warning',name:r.name,
+          detail:`Test/staging DLP rule still active in production. Apps: ${r.appNames}`,
+          tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
+          rec:'Disable or remove test rules, or rename once fully approved.'});
+      });
+
+      return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotification:8,dupPriority:8,testRules:6}),rules,'rules');
     },
     render(pid,mid,result){
-      wrapRender(pid,mid,result,'Policy gaps, no-action rules, classifier coverage',
-        [{n:result.rules.length,l:'Policies',c:'blue'},{n:result.issues.noAction.length,l:'No Action',c:'red'},{n:result.issues.disabled.length,l:'Disabled',c:'yellow'},{n:result.issues.coverage.length,l:'Gaps',c:'yellow'}],
-        [{id:`${pid}-${mid}-na`,icon:'🚨',title:'No-Action Policies',desc:'Detects but takes no action',issues:result.issues.noAction},
-         {id:`${pid}-${mid}-cov`,icon:'⚠',title:'Coverage Gaps',desc:'Required data types without enforcement',issues:result.issues.coverage},
-         {id:`${pid}-${mid}-bs`,icon:'🌐',title:'Broad Scope',desc:'All-classifiers or all-channels',issues:result.issues.broadScope},
-         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Disabled',desc:'Inactive policies',issues:result.issues.disabled}]);
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{isActive,hasRemediation:remActions.length>0,severity:(r.severity||'').toUpperCase()};
+      };
+      const norm=result.rules.map(r=>_norm(r));
+      const active=norm.filter(r=>r.isActive).length;
+      const withRem=norm.filter(r=>r.isActive&&r.hasRemediation).length;
+      const critical=norm.filter(r=>r.severity==='CRITICAL').length;
+      wrapRender(pid,mid,result,'Data leakage rules — remediation gaps, notification gaps, priority conflicts',
+        [{n:norm.length,l:'Total Rules',c:'blue'},
+         {n:active,l:'Active',c:'green'},
+         {n:critical,l:'Critical Sev',c:'red',link:`${pid}-${mid}-nr`},
+         {n:active-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
+         {n:result.issues.noNotification.length,l:'Silent Rules',c:'yellow',link:`${pid}-${mid}-nn`}],
+        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'DLP rules that only alert — no automated response',issues:result.issues.noRemediation},
+         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates — fires without alerting team',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Shared priority — unpredictable evaluation order',issues:result.issues.dupPriority},
+         {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still enabled in production',issues:result.issues.testRules},
+         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled — confirm intentional or remove',issues:result.issues.inactive}]);
     }
   },
   tap:{
