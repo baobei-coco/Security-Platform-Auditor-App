@@ -678,7 +678,7 @@ function buildSidebarAndMain(pid){
               '<div class="module-subtitle">Import exports or load demo data for each module below</div>'+
             '</div>'+
             '<div class="module-actions">'+
-              '<button class="btn btn-primary btn-sm" onclick="loadCurrentDemo()">⚡ Load All Demo</button>'+
+              '<button class="btn btn-outline btn-sm" onclick="bulkImport(\''+pid+'\')">📂 Quick Import</button>'+'<button class="btn btn-primary btn-sm" onclick="loadCurrentDemo()">⚡ Load All Demo</button>'+
               '<button class="btn btn-secondary btn-sm" onclick="exportAllCSV()">⬇ Export All CSV</button>'+
               '<button class="btn btn-primary btn-sm" onclick="openImportModal(\''+pid+'\')">📥 Import Data</button>'+
             '</div>'+
@@ -778,6 +778,41 @@ function closeImportModal(){
   document.getElementById('importTextarea').value='';
   document.getElementById('importPreview').innerHTML='';
 }
+// ── Bulk file import — routes entire file to a single module ──────────────────
+function bulkImport(pid){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json,.csv';
+  input.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        let data;
+        if(file.name.endsWith('.csv')) data=parseCSV(ev.target.result);
+        else{
+          data=JSON.parse(ev.target.result);
+          // unwrap common wrapper keys
+          if(!Array.isArray(data)&&typeof data==='object'){
+            for(const k of['rules','policies','data','items','users','findings','detections'])
+              if(data[k]&&Array.isArray(data[k])){data=data[k];break;}
+          }
+        }
+        if(!Array.isArray(data)){showImportToast('⚠ Could not parse file as a record array');return;}
+        // Route to the first non-dash module of the platform (casb for pp)
+        const p=PLATFORMS[pid];
+        const firstMod=p.modules.find(m=>m.id!=='dash');
+        if(!firstMod)return;
+        saveToStorage(pid,firstMod.id,data);
+        processModule(pid,firstMod.id,data,false);
+        updateSidebarDataDots(pid);
+        showImportToast(`✓ Imported ${data.length} records → ${firstMod.label}`);
+      }catch(err){showImportToast('⚠ Import failed: '+err.message);}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeImportModal();});
 
 function setImportModule(mid){
@@ -1091,8 +1126,18 @@ pp:{
       return {id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,severity:(r.severity||'').toUpperCase(),category:r.category||'',appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags};
     },
     analyze(rules){
-      const self=MODULE_DEFS.pp.casb;
-      const norm=rules.map(r=>self._normalize(r));
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const hasRemediation=remActions.length>0;
+        const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+        const hasNotification=notifTemplates.length>0||(r.notifications?.admin!=null)||(r.notifications?.endUser!=null);
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
+          severity:(r.severity||'').toUpperCase(),category:r.category||'',
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags:(r.tags||[])};
+      };
+      const norm=rules.map(r=>_norm(r));
       const issues={noRemediation:[],noNotification:[],disabled:[],dupPriority:[],testRules:[],coverage:[]};
 
       // Disabled rules
@@ -1159,7 +1204,18 @@ pp:{
       return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:6,coverage:3}),rules,'rules');
     },
     render(pid,mid,result){
-      const norm=result.rules.map(r=>MODULE_DEFS.pp.casb._normalize(r));
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const hasRemediation=remActions.length>0;
+        const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+        const hasNotification=notifTemplates.length>0||(r.notifications?.admin!=null)||(r.notifications?.endUser!=null);
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
+          severity:(r.severity||'').toUpperCase(),category:r.category||'',
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags:(r.tags||[])};
+      };
+      const norm=result.rules.map(r=>_norm(r));
       const active=norm.filter(r=>r.isActive).length;
       const withRem=norm.filter(r=>r.isActive&&r.hasRemediation).length;
       const withNotif=norm.filter(r=>r.isActive&&r.hasNotification).length;
