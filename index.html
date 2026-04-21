@@ -141,7 +141,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .upload-card-label{font-size:12px;font-weight:700;color:var(--text);}
 .upload-card-btns{display:flex;gap:6px;flex-wrap:wrap;}
 .stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:9px;margin-bottom:18px;}
-.stat-box{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
+.stat-box{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;transition:border-color .15s,transform .1s;}.stat-box.clickable{cursor:pointer;}.stat-box.clickable:hover{border-color:var(--accent);transform:translateY(-1px);}
 .stat-box .sb-num{font-family:var(--mono);font-size:20px;font-weight:600;line-height:1;}
 .stat-box .sb-label{font-size:10px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.06em;}
 .sb-red .sb-num{color:var(--red);} .sb-yellow .sb-num{color:var(--yellow);} .sb-green .sb-num{color:var(--green);}
@@ -441,8 +441,35 @@ function scoreClass(s){return s>=90?'sc-a':s>=75?'sc-b':s>=60?'sc-c':s>=45?'sc-d
 function barColor(s){return s>=90?'var(--green)':s>=75?'#84cc16':s>=60?'var(--yellow)':s>=45?'var(--orange)':'var(--red)';}
 function badgeClass(c,crit,warn){return c===0?'ok':c>=crit?'critical':c>=warn?'warning':'info';}
 
+
+function jumpToSection(sectionId){
+  const el=document.getElementById(sectionId);
+  if(!el)return;
+  // Open it if not already open
+  const body=el.querySelector('.asb');
+  const chev=el.querySelector('.ash-chev');
+  if(body&&!body.classList.contains('open')){
+    body.classList.add('open');
+    if(chev)chev.classList.add('open');
+  }
+  // Scroll to it within the main container
+  const main=document.getElementById('main');
+  if(main){
+    const top=el.offsetTop - 80;
+    main.scrollTo({top,behavior:'smooth'});
+  }
+  // Briefly highlight
+  el.style.outline='2px solid var(--accent)';
+  el.style.outlineOffset='2px';
+  setTimeout(()=>{el.style.outline='';el.style.outlineOffset='';},1200);
+}
 function buildStatRow(stats,id){
-  document.getElementById(id).innerHTML=stats.map(s=>`<div class="stat-box sb-${s.c}"><div class="sb-num">${s.n}</div><div class="sb-label">${s.l}</div></div>`).join('');
+  document.getElementById(id).innerHTML=stats.map(s=>{
+    const cls=`stat-box sb-${s.c}${s.link?' clickable':''}`;
+    const click=s.link?`onclick="jumpToSection('${s.link}')"` :'';
+    const title=s.link?`title="Click to view ${s.l}"`:'';
+    return`<div class="${cls}" ${click} ${title}><div class="sb-num">${s.n}</div><div class="sb-label">${s.l}</div></div>`;
+  }).join('');
 }
 
 function buildSection(id,icon,title,desc,issues,container,append=true){
@@ -1252,7 +1279,11 @@ pp:{
       const withNotif=norm.filter(r=>r.isActive&&r.hasNotification).length;
       const critical=norm.filter(r=>r.severity==='CRITICAL').length;
       wrapRender(pid,mid,result,'Rule coverage, remediation gaps, notification gaps, priority conflicts',
-        [{n:norm.length,l:'Total Rules',c:'blue'},{n:active,l:'Active',c:'green'},{n:critical,l:'Critical Sev',c:'red'},{n:withRem,l:'Has Remediation',c:'green'},{n:withNotif,l:'Has Notification',c:'blue'}],
+        [{n:norm.length,l:'Total Rules',c:'blue'},
+         {n:active,l:'Active',c:'green'},
+         {n:critical,l:'Critical Sev',c:'red',link:`${pid}-${mid}-nr`},
+         {n:norm.length-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
+         {n:norm.length-withNotif,l:'No Notification',c:'yellow',link:`${pid}-${mid}-nn`}],
         [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Active rules that only alert — no automated response',issues:result.issues.noRemediation},
          {id:`${pid}-${mid}-nn`,icon:'⚡',title:'No Notifications',desc:'Rules that fire silently with no alert templates',issues:result.issues.noNotification},
          {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Rules sharing the same priority — unpredictable ordering',issues:result.issues.dupPriority},
