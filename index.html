@@ -521,9 +521,11 @@ const PLATFORMS = {
       {id:'casb',icon:'☁',label:'CASB'},
       {id:'email',icon:'✉',label:'Email Security'},
       {id:'dlp',icon:'🔒',label:'DLP'},
+      {id:'dsw',icon:'🔍',label:'Data Security WB'},
+      {id:'appsec',icon:'🧩',label:'App Governance'},
+      {id:'posture',icon:'🏛',label:'Security Posture'},
       {id:'tap',icon:'🎯',label:'TAP'},
       {id:'users',icon:'👤',label:'Users & Groups'},
-      {id:'dsw',icon:'🔍',label:'Data Security WB'},
       {id:'isolation',icon:'🛡',label:'Isolation'},
       {id:'humanrisk',icon:'⚠',label:'Human Risk'},
       {id:'riskconfig',icon:'⚙',label:'Risk Config'},
@@ -658,24 +660,47 @@ function launchPlatform(pid){
   try{
     const stored=JSON.parse(localStorage.getItem(lsKey(pid))||'{}');
     const defs=MODULE_DEFS[pid]||{};
-    // For Proofpoint: if all data is stored under 'casb', re-split by category
+    // For Proofpoint: if casb contains mixed categories (unsplit), re-split by category
     if(pid==='pp'&&stored.casb&&stored.casb.length){
-      const categoryMap={access:'casb',data:'dlp',app_governance:'casb',configuration_and_security_posture:'casb'};
-      const hasCategoryField=stored.casb[0]&&stored.casb[0].category!==undefined;
-      if(hasCategoryField){
+      const _splitData=r=>{const a=(r.activities||[]).map(x=>x.name).join(' ')+(r.knownThreats||[]).map(x=>x.name).join(' ');return/suspicious|anomalous|instant message|repository|copilot/i.test(a)?'dsw':'dlp';};
+      const _splitCsp=r=>{const a=(r.activities||[]).map(x=>x.name).join(' ')+(r.knownThreats||[]).map(x=>x.name).join(' ');return/mailbox|mail activity|send on behalf|send as/i.test(a)?'email':'posture';};
+      const categoryMap={access:()=>'casb',data:_splitData,app_governance:()=>'appsec',configuration_and_security_posture:_splitCsp};
+      const hasMixedCategories=stored.casb.length>21||stored.casb.some(r=>r.category!=='access');
+      if(hasMixedCategories){
         const buckets={};
         stored.casb.forEach(r=>{
-          const mid=categoryMap[r.category]||'casb';
+          const mid=categoryMap[r.category]?categoryMap[r.category](r):'casb';
           if(!buckets[mid])buckets[mid]=[];
           buckets[mid].push(r);
         });
-        // Save split data back to storage
+        // Save split data — don't overwrite manually imported module data
         Object.entries(buckets).forEach(([mid,records])=>{
-          saveToStorage(pid,mid,records);
+          if(!stored[mid]||stored[mid].length===0) saveToStorage(pid,mid,records);
         });
-        // Reload stored with split data
-        Object.assign(stored, buckets);
+        // Update in-memory stored object with split data (only new keys)
+        Object.entries(buckets).forEach(([mid,records])=>{
+          if(!stored[mid]||stored[mid].length===0) stored[mid]=records;
+        });
       }
+    }
+    // Re-split dsw if it has records that belong to other modules (unsplit state)
+    if(pid==='pp'&&stored.dsw&&stored.dsw.length>18){
+      const _splitData=r=>{const a=(r.activities||[]).map(x=>x.name).join(' ')+(r.knownThreats||[]).map(x=>x.name).join(' ');return/suspicious|anomalous|instant message|repository|copilot/i.test(a)?'dsw':'dlp';};
+      const _splitCsp=r=>{const a=(r.activities||[]).map(x=>x.name).join(' ')+(r.knownThreats||[]).map(x=>x.name).join(' ');return/mailbox|mail activity|send on behalf|send as/i.test(a)?'email':'posture';};
+      const fullMap={access:()=>'casb',data:_splitData,app_governance:()=>'appsec',configuration_and_security_posture:_splitCsp};
+      const buckets={};
+      stored.dsw.forEach(r=>{
+        const mid=fullMap[r.category]?fullMap[r.category](r):'dsw';
+        if(!buckets[mid])buckets[mid]=[];
+        buckets[mid].push(r);
+      });
+      // Save split data — don't overwrite manually imported module data
+      Object.entries(buckets).forEach(([mid,records])=>{
+        if(!stored[mid]||stored[mid].length===0) saveToStorage(pid,mid,records);
+      });
+      Object.entries(buckets).forEach(([mid,records])=>{
+        if(!stored[mid]||stored[mid].length===0) stored[mid]=records;
+      });
     }
     Object.keys(stored).forEach(mid=>{
       if(defs[mid]&&stored[mid]&&stored[mid].length){
@@ -949,18 +974,38 @@ function handleImportFile(e){
   e.target.value='';
 }
 
-// ── Shared import router — splits pp data by category, otherwise routes to mid
-function splitAndImport(pid, mid, data){
+// ── Shared import router — splits pp data by category when bulk importing,
+//    or saves directly to the specified module when force=true
+function splitAndImport(pid, mid, data, force=false){
   const hasCategoryField=Array.isArray(data)&&data.length>0&&data[0].category!==undefined;
-  if(pid==='pp'&&hasCategoryField){
+  // Only auto-split when: not forced, it's pp, data has category field,
+  // AND the target mid is casb (bulk import) not a specific user-chosen module
+  if(!force&&pid==='pp'&&hasCategoryField&&mid==='casb'){
+    // Split data sub-types: suspicious/anomalous file → dsw, rest → dlp
+    const splitDataRule=r=>{
+      const acts=(r.activities||[]).map(a=>a.name);
+      const threats=(r.knownThreats||[]).map(t=>t.name);
+      const all=[...acts,...threats].join(' ').toLowerCase();
+      if(/suspicious|anomalous|instant message|repository|copilot/i.test(all)) return 'dsw';
+      return 'dlp';
+    };
+    // Split config sub-types: mailbox/mail → email, rest → posture
+    const splitCspRule=r=>{
+      const acts=(r.activities||[]).map(a=>a.name);
+      const threats=(r.knownThreats||[]).map(t=>t.name);
+      const all=[...acts,...threats].join(' ').toLowerCase();
+      if(/mailbox|mail activity|send on behalf|send as/i.test(all)) return 'email';
+      return 'posture';
+    };
     const categoryMap={
-      access:'casb', data:'dlp',
-      app_governance:'casb',
-      configuration_and_security_posture:'casb'
+      access: r=>'casb',
+      data: r=>splitDataRule(r),
+      app_governance: r=>'appsec',
+      configuration_and_security_posture: r=>splitCspRule(r)
     };
     const buckets={};
     data.forEach(r=>{
-      const m=categoryMap[r.category]||'casb';
+      const m=categoryMap[r.category]?categoryMap[r.category](r):'casb';
       if(!buckets[m])buckets[m]=[];
       buckets[m].push(r);
     });
@@ -977,6 +1022,7 @@ function splitAndImport(pid, mid, data){
     showImportToast(`✓ Auto-split ${count} records — ${summary}`);
     return Object.keys(buckets)[0]||mid;
   } else {
+    // Respect the user's chosen module — save directly
     saveToStorage(pid,mid,data);
     processModule(pid,mid,data,false);
     updateSidebarDataDots(pid);
@@ -991,12 +1037,13 @@ function applyImport(){
   try{
     const parsed=parseImportInput(text,importState.fmt);
     if(Array.isArray(parsed)){
-      const landed=splitAndImport(pid,mid,parsed);
+      // force=true — user explicitly chose this module tab, don't re-route
+      const landed=splitAndImport(pid,mid,parsed,true);
       updateImportTabDot(landed,true);
     } else {
       // Object with module keys — route each key directly
       Object.entries(parsed).forEach(([m,d])=>{
-        splitAndImport(pid,m,d);
+        splitAndImport(pid,m,d,true);
         updateImportTabDot(m,true);
       });
     }
@@ -1337,32 +1384,77 @@ pp:{
   },
   email:{
     demo:()=>[
-      {id:'e01',name:'Allow - Marketing Partners',type:'allowlist',sender:'@marketingco.com',enabled:true,action:'Allow',priority:5,lastModified:'2020-01-05'},
-      {id:'e02',name:'Wildcard Allow',type:'allowlist',sender:'*@*',enabled:true,action:'Allow',priority:3,lastModified:'2021-09-15'},
-      {id:'e03',name:'Spam High Confidence',type:'filter',condition:'spam_score>90',enabled:true,action:'Quarantine',priority:10,lastModified:'2023-11-01'},
-      {id:'e04',name:'Spam Duplicate',type:'filter',condition:'spam_score>90',enabled:true,action:'Deliver',priority:20,lastModified:'2022-05-05'},
-      {id:'e05',name:'Lookalike Domain',type:'filter',condition:'lookalike_domain=true',enabled:false,action:'Quarantine',priority:9,lastModified:'2023-08-20'},
-      {id:'e06',name:'No Action Filter',type:'filter',condition:'attachment_type=exe',enabled:true,action:'',priority:25,lastModified:'2022-03-01'},
+      {ruleId:'em01',name:'O365/Malicious Mailbox Message Activity',isActive:true,applications:[{name:'office365'}],remediationActions:{},notifications:{platform:{templates:[{name:'CASB - Admin Notification - Suspicious Mail Activity'}]}},priority:2,severity:'CRITICAL',category:'configuration_and_security_posture',activities:[{name:'Mailbox Messages'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
+      {ruleId:'em02',name:'O365/Suspicious Mail Activity',isActive:true,applications:[{name:'Office 365'}],remediationActions:{'34':[{name:'Revoke Session'}]},notifications:{platform:{templates:[{name:'CASB - Admin Notification - Suspicious Mail Activity'}]}},priority:5,severity:'HIGH',category:'configuration_and_security_posture',activities:[],knownThreats:[{name:'Suspicious Mail Activity'}],tags:['it-tag-suspicious-activity']},
+      {ruleId:'em03',name:'O365/Mailbox Rule Forward External',isActive:true,applications:[{name:'office365'}],remediationActions:{},notifications:{platform:{templates:[]}},priority:13,severity:'MEDIUM',category:'configuration_and_security_posture',activities:[{name:'Exchange Mailbox Settings Change'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
     ],
     analyze(rules){
-      const issues={broadAllow:[],noAction:[],overlap:[],stale:[],disabled:[]};
-      const now=new Date();const staleDate=new Date(now-365*2*24*60*60*1000);
-      rules.filter(r=>r.enabled&&r.type==='allowlist'&&(r.sender==='*@*'||r.sender==='*'||r.sender?.startsWith('*@'))).forEach(r=>issues.broadAllow.push({sev:'critical',name:r.name,detail:`Wildcard "${r.sender}" bypasses all spam/phishing filters.`,tags:[{v:'WILDCARD',c:'r'},{v:r.sender}],rec:'Replace with specific reviewed domains.'}));
-      rules.filter(r=>r.enabled&&!r.action).forEach(r=>issues.noAction.push({sev:'critical',name:r.name,detail:'Filter with no action — threats pass through.',tags:[{v:'NO ACTION',c:'r'}],rec:'Set Block, Quarantine, or Tag.'}));
-      rules.filter(r=>!r.enabled).forEach(r=>issues.disabled.push({sev:'warning',name:r.name,detail:'Disabled rule.',tags:[{v:'DISABLED',c:'y'}],rec:'Enable or remove.'}));
-      rules.filter(r=>r.enabled&&r.lastModified&&new Date(r.lastModified)<staleDate).forEach(r=>issues.stale.push({sev:'info',name:r.name,detail:`Last modified ${r.lastModified} — over 2 years ago.`,tags:[{v:'STALE',c:'b'},{v:r.lastModified}],rec:'Review for accuracy.'}));
-      const fp={};rules.filter(r=>r.enabled).forEach(r=>{const k=[r.type,String(r.condition||r.sender||'').toLowerCase()].join('|');if(!fp[k])fp[k]=[];fp[k].push(r);});
-      Object.values(fp).filter(g=>g.length>1).forEach(g=>{const s=[...g].sort((a,b)=>a.priority-b.priority);s.slice(1).forEach(r=>issues.overlap.push({sev:'critical',name:r.name,detail:`Conflicts with "${s[0].name}" — same condition, action: ${r.action}.`,tags:[{v:'CONFLICT',c:'r'}],rec:'Reconcile conflicting actions.'}));});
-      return makeResult(issues,calcScore(issues,{broadAllow:25,noAction:20,overlap:15,stale:4,disabled:5}),rules,'rules');
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const hasRemediation=remActions.length>0;
+        const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+        const hasNotification=notifTemplates.length>0||(r.notifications?.admin?.isActive)||(r.notifications?.endUser?.isActive);
+        const activities=(r.activities||[]).map(a=>a.name||a).join(', ');
+        const threats=(r.knownThreats||[]).map(t=>t.name||t).join(', ');
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
+          severity:(r.severity||'').toUpperCase(),category:r.category||'',
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,
+          activities,threats,tags:(r.tags||[])};
+      };
+      const norm=rules.map(r=>_norm(r));
+      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[],dupPriority:[]};
+
+      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
+        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
+        issues.noRemediation.push({sev,name:r.name,
+          detail:`Mail security rule fires with no automated response. Apps: ${r.appNames}. Activity: ${r.activities||r.threats||'—'}`,
+          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
+          rec:'Add remediation (Revoke Session, Disable Mailbox Rule) for high-severity mail threats.'});
+      });
+      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+        issues.noNotification.push({sev:'warning',name:r.name,
+          detail:`Rule fires silently — no notification templates. Apps: ${r.appNames}`,
+          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
+          rec:'Add platform notification so mail threats alert the security team.'});
+      });
+      norm.filter(r=>!r.isActive).forEach(r=>{
+        issues.inactive.push({sev:'warning',name:r.name,
+          detail:`Mail rule inactive. Apps: ${r.appNames}`,
+          tags:[{v:'INACTIVE',c:'y'},{v:r.appNames}],
+          rec:'Re-enable if still required or delete to reduce clutter.'});
+      });
+      norm.filter(r=>r.isActive&&/test|testing|staging|temp/i.test(r.name)).forEach(r=>{
+        issues.testRules.push({sev:'warning',name:r.name,
+          detail:`Test rule active in production. Apps: ${r.appNames}`,
+          tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
+          rec:'Disable or remove test rules from production.'});
+      });
+      const byPrio={};
+      norm.filter(r=>r.isActive).forEach(r=>{if(!byPrio[r.priority])byPrio[r.priority]=[];byPrio[r.priority].push(r);});
+      Object.entries(byPrio).filter(([,g])=>g.length>1).forEach(([p,g])=>{
+        g.forEach(r=>issues.dupPriority.push({sev:'warning',name:r.name,
+          detail:`Shares priority ${p} with ${g.length-1} other rule(s).`,
+          tags:[{v:`PRIORITY ${p}`,c:'y'}],rec:'Assign unique priorities.'}));
+      });
+      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6,dupPriority:5}),rules,'rules');
     },
     render(pid,mid,result){
-      wrapRender(pid,mid,result,'Spam/phishing rules, allow/block lists, policy conflicts',
-        [{n:result.rules.length,l:'Rules',c:'blue'},{n:result.issues.broadAllow.length,l:'Wildcard Allows',c:'red'},{n:result.issues.noAction.length,l:'No Action',c:'red'},{n:result.issues.overlap.length,l:'Conflicts',c:'red'},{n:result.issues.stale.length,l:'Stale',c:'yellow'}],
-        [{id:`${pid}-${mid}-wa`,icon:'🚨',title:'Wildcard Allow Entries',desc:'Bypass all filters',issues:result.issues.broadAllow},
-         {id:`${pid}-${mid}-na`,icon:'🔴',title:'No-Action Filters',desc:'Threats pass through',issues:result.issues.noAction},
-         {id:`${pid}-${mid}-ov`,icon:'⚡',title:'Conflicting Rules',desc:'Same condition, different action',issues:result.issues.overlap},
-         {id:`${pid}-${mid}-st`,icon:'📅',title:'Stale Rules',desc:'Not updated in 2+ years',issues:result.issues.stale},
-         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Disabled',desc:'Inactive rules',issues:result.issues.disabled}]);
+      const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
+      const norm=result.rules.map(r=>_n(r));
+      const active=norm.filter(r=>r.isActive).length;
+      const withRem=norm.filter(r=>r.isActive&&r.hasRem).length;
+      wrapRender(pid,mid,result,'Mailbox rules, mail activity — remediation and notification gaps',
+        [{n:norm.length,l:'Total Rules',c:'blue'},{n:active,l:'Active',c:'green'},
+         {n:active-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
+         {n:result.issues.noNotification.length,l:'Silent',c:'yellow',link:`${pid}-${mid}-nn`},
+         {n:result.issues.testRules.length,l:'Test Rules',c:'yellow',link:`${pid}-${mid}-tr`}],
+        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Mail rules with no automated response',issues:result.issues.noRemediation},
+         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules in production',issues:result.issues.testRules},
+         {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Shared priority — unpredictable ordering',issues:result.issues.dupPriority},
+         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled — confirm intentional',issues:result.issues.inactive}]);
     }
   },
   dlp:{
@@ -1516,26 +1608,70 @@ pp:{
   },
   dsw:{
     demo:()=>[
-      {id:'w01',name:'Exfil Alert - Email',enabled:true,type:'alert',assignee:'SecOps',slaHours:4,avgResponseHours:2,retention:180},
-      {id:'w02',name:'Exfil Alert - Web',enabled:true,type:'alert',assignee:'',slaHours:4,avgResponseHours:null,retention:180},
-      {id:'w03',name:'Large Download Alert',enabled:true,type:'alert',assignee:'SecOps',slaHours:8,avgResponseHours:24,retention:90},
-      {id:'w04',name:'Privileged User Monitor',enabled:false,type:'alert',assignee:'SecOps',slaHours:1,avgResponseHours:null,retention:180},
+      {ruleId:'dsw01',name:'O365/Suspicious Sensitive Data Exfiltration',isActive:true,applications:[{name:'office365'}],remediationActions:{},notifications:{platform:{templates:[{name:'CASB - Admin Notification - DATA'}]}},priority:5,severity:'HIGH',category:'data',activities:[],knownThreats:[{name:'Suspicious File Activity'}],tags:['it-tag-data-leakage']},
+      {ruleId:'dsw02',name:'O365/Anomalous File Activity (high/critical)',isActive:true,applications:[{name:'Office 365'}],remediationActions:{},notifications:{platform:{templates:[{name:'CASB - Admin Notification - Anomalous File Activity'}]}},priority:21,severity:'HIGH',category:'data',activities:[],knownThreats:[{name:'Anomalous File Activity'}],tags:['it-tag-data-leakage']},
+      {ruleId:'dsw03',name:'GIT/Code Repositories Shared Publicly-TESTING',isActive:true,applications:[{name:'github'}],remediationActions:{},notifications:{platform:{templates:[]}},priority:59,severity:'HIGH',category:'data',activities:[{name:'Repository Public Sharing'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
     ],
-    analyze(items){
-      const issues={noAssignee:[],slaBreached:[],disabled:[],lowRetention:[]};
-      items.filter(i=>i.enabled&&!i.assignee).forEach(i=>issues.noAssignee.push({sev:'critical',name:i.name,detail:'Unassigned alert — nobody will triage it.',tags:[{v:'UNASSIGNED',c:'r'}],rec:'Assign to a team queue.'}));
-      items.filter(i=>i.enabled&&i.slaHours>0&&i.avgResponseHours&&i.avgResponseHours>i.slaHours).forEach(i=>issues.slaBreached.push({sev:'critical',name:i.name,detail:`Avg response ${i.avgResponseHours}h > SLA ${i.slaHours}h.`,tags:[{v:'SLA BREACH',c:'r'}],rec:'Review analyst capacity.'}));
-      items.filter(i=>!i.enabled).forEach(i=>issues.disabled.push({sev:'warning',name:i.name,detail:'Alert disabled.',tags:[{v:'DISABLED',c:'y'}],rec:'Enable or archive.'}));
-      items.filter(i=>i.enabled&&i.retention&&i.retention<90).forEach(i=>issues.lowRetention.push({sev:'warning',name:i.name,detail:`Retention ${i.retention} days — below 90-day minimum.`,tags:[{v:'LOW RETENTION',c:'y'}],rec:'Increase to 90-180 days.'}));
-      return makeResult(issues,calcScore(issues,{noAssignee:20,slaBreached:20,disabled:8,lowRetention:8}),items);
+    analyze(rules){
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const hasRemediation=remActions.length>0;
+        const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+        const hasNotification=notifTemplates.length>0||(r.notifications?.admin?.isActive)||(r.notifications?.endUser?.isActive);
+        const activities=(r.activities||[]).map(a=>a.name||a).join(', ');
+        const threats=(r.knownThreats||[]).map(t=>t.name||t).join(', ');
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
+          severity:(r.severity||'').toUpperCase(),category:r.category||'',
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,
+          activities,threats,tags:(r.tags||[])};
+      };
+      const norm=rules.map(r=>_norm(r));
+      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
+
+      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
+        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
+        const actStr=r.activities||r.threats||'—';
+        issues.noRemediation.push({sev,name:r.name,
+          detail:`Suspicious/anomalous activity rule with no automated response. Apps: ${r.appNames}. Type: ${actStr}`,
+          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
+          rec:'Add remediation (Revoke Session, Block Download) for suspicious file and anomalous activity rules.'});
+      });
+      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+        issues.noNotification.push({sev:'warning',name:r.name,
+          detail:`Rule fires silently. Apps: ${r.appNames}. Type: ${r.activities||r.threats||'—'}`,
+          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
+          rec:'Add platform notification template to alert security team.'});
+      });
+      norm.filter(r=>!r.isActive).forEach(r=>{
+        issues.inactive.push({sev:'warning',name:r.name,
+          detail:`Inactive. Apps: ${r.appNames}`,
+          tags:[{v:'INACTIVE',c:'y'},{v:r.appNames}],
+          rec:'Re-enable or delete.'});
+      });
+      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+        issues.testRules.push({sev:'warning',name:r.name,
+          detail:`Test rule active in production. Apps: ${r.appNames}`,
+          tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
+          rec:'Disable or rename once approved.'});
+      });
+      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6}),rules,'rules');
     },
     render(pid,mid,result){
-      wrapRender(pid,mid,result,'Alert assignment, SLA compliance, retention',
-        [{n:result.items.length,l:'Alert Rules',c:'blue'},{n:result.issues.noAssignee.length,l:'Unassigned',c:'red'},{n:result.issues.slaBreached.length,l:'SLA Breach',c:'red'},{n:result.issues.disabled.length,l:'Disabled',c:'yellow'}],
-        [{id:`${pid}-${mid}-na`,icon:'🚨',title:'Unassigned Alerts',desc:'No owner — untriaged',issues:result.issues.noAssignee},
-         {id:`${pid}-${mid}-sla`,icon:'🔴',title:'SLA Breaches',desc:'Response exceeds target',issues:result.issues.slaBreached},
-         {id:`${pid}-${mid}-lr`,icon:'📅',title:'Low Retention',desc:'Data deleted too soon',issues:result.issues.lowRetention},
-         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Disabled',desc:'Inactive alerts',issues:result.issues.disabled}]);
+      const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
+      const norm=result.rules.map(r=>_n(r));
+      const active=norm.filter(r=>r.isActive).length;
+      const withRem=norm.filter(r=>r.isActive&&r.hasRem).length;
+      wrapRender(pid,mid,result,'Suspicious file activity, anomalous behaviour, repository security',
+        [{n:norm.length,l:'Total Rules',c:'blue'},{n:active,l:'Active',c:'green'},
+         {n:active-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
+         {n:result.issues.noNotification.length,l:'Silent',c:'yellow',link:`${pid}-${mid}-nn`},
+         {n:result.issues.testRules.length,l:'Test Rules',c:'yellow',link:`${pid}-${mid}-tr`}],
+        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Suspicious activity rules with no automated response',issues:result.issues.noRemediation},
+         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates configured',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still in production',issues:result.issues.testRules},
+         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules',issues:result.issues.inactive}]);
     }
   },
   isolation:{
@@ -1641,6 +1777,138 @@ pp:{
          {id:`${pid}-${mid}-un`,icon:'⚡',title:'Unused Classifiers',desc:'Active but not linked to policy',issues:result.issues.unused},
          {id:`${pid}-${mid}-fp`,icon:'📊',title:'High False Positives',desc:'Classifiers generating noise',issues:result.issues.highFP},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Disabled',desc:'Inactive classifiers',issues:result.issues.disabled}]);
+    }
+  },
+  appsec:{
+    demo:()=>[
+      {ruleId:'ag01',name:'O365/Critical Severity Third-party Application Authorized',isActive:true,applications:[{name:'office365'}],remediationActions:{},notifications:{platform:{templates:[{name:'CASB - Admin Notification - APP GOVERNANCE'}]},admin:{isActive:false},endUser:{isActive:false}},priority:0,severity:'CRITICAL',category:'app_governance',activities:[{name:'3rd Party App Access Authorize'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
+      {ruleId:'ag02',name:'GWS/Malicious 3rd Party App Authorized',isActive:true,applications:[{name:'Google Apps'}],remediationActions:{},notifications:{platform:{templates:[{name:'CASB - Admin Notification - APP GOVERNANCE'}]},admin:{isActive:false},endUser:{isActive:false}},priority:2,severity:'HIGH',category:'app_governance',activities:[{name:'3rd Party App Access Authorize'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
+      {ruleId:'ag03',name:'O365/Third-party Application AI Detection',isActive:true,applications:[{name:'office365'}],remediationActions:{},notifications:{platform:{templates:[]},admin:{isActive:false},endUser:{isActive:false}},priority:10,severity:'MEDIUM',category:'app_governance',activities:[{name:'3rd Party App Access Authorize'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
+    ],
+    analyze(rules){
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const hasRemediation=remActions.length>0;
+        const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+        const hasNotification=notifTemplates.length>0||(r.notifications?.admin?.isActive)||(r.notifications?.endUser?.isActive);
+        const activities=(r.activities||[]).map(a=>a.name||a).join(', ');
+        const threats=(r.knownThreats||[]).map(t=>t.name||t).join(', ');
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
+          severity:(r.severity||'').toUpperCase(),category:r.category||'',
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,
+          activities,threats,tags:(r.tags||[])};
+      };
+      const norm=rules.map(r=>_norm(r));
+      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
+
+      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
+        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
+        issues.noRemediation.push({sev,name:r.name,
+          detail:`App governance rule with no automated response — risky 3rd-party apps go unblocked. Apps: ${r.appNames}`,
+          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
+          rec:'Add remediation to revoke or block unauthorized third-party app authorizations.'});
+      });
+      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+        issues.noNotification.push({sev:'warning',name:r.name,
+          detail:`App governance rule fires silently. Apps: ${r.appNames}`,
+          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
+          rec:'Add platform notification so app authorization events alert the security team.'});
+      });
+      norm.filter(r=>!r.isActive).forEach(r=>{
+        issues.inactive.push({sev:'warning',name:r.name,
+          detail:`App governance rule inactive. Apps: ${r.appNames}`,
+          tags:[{v:'INACTIVE',c:'y'},{v:r.appNames}],rec:'Re-enable or delete.'});
+      });
+      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+        issues.testRules.push({sev:'warning',name:r.name,
+          detail:`Test rule active in production. Apps: ${r.appNames}`,
+          tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
+      });
+      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6}),rules,'rules');
+    },
+    render(pid,mid,result){
+      const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
+      const norm=result.rules.map(r=>_n(r));
+      const active=norm.filter(r=>r.isActive).length;
+      const withRem=norm.filter(r=>r.isActive&&r.hasRem).length;
+      const critical=norm.filter(r=>r.severity==='CRITICAL').length;
+      wrapRender(pid,mid,result,'Third-party app authorization — risky apps, AI apps, malicious authorizations',
+        [{n:norm.length,l:'Total Rules',c:'blue'},{n:active,l:'Active',c:'green'},
+         {n:critical,l:'Critical Sev',c:'red',link:`${pid}-${mid}-nr`},
+         {n:active-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
+         {n:result.issues.noNotification.length,l:'Silent',c:'yellow',link:`${pid}-${mid}-nn`}],
+        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'App governance rules with no automated response',issues:result.issues.noRemediation},
+         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates configured',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still in production',issues:result.issues.testRules},
+         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules',issues:result.issues.inactive}]);
+    }
+  },
+  posture:{
+    demo:()=>[
+      {ruleId:'ps01',name:'O365/SharePoint Admin Settings Change from TOR Addresses',isActive:true,applications:[{name:'office365'}],remediationActions:{'34':[{name:'Revoke Session'}]},notifications:{platform:{templates:[{name:'CASB - Admin Notification - SharePoint Admin Settings Change'}]}},priority:0,severity:'CRITICAL',category:'configuration_and_security_posture',activities:[{name:'Sharepoint Admin Settings Change'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
+      {ruleId:'ps02',name:'O365/Malicious Manipulation of Authentication Settings',isActive:true,applications:[{name:'office365'}],remediationActions:{'34':[{name:'Revoke Session'}]},notifications:{platform:{templates:[{name:'CASB - Admin Notification - Token Theft Event Detected'}]}},priority:10,severity:'HIGH',category:'configuration_and_security_posture',activities:[{name:'User & Authentication Settings Changes'}],knownThreats:[],tags:['it-tag-suspicious-activity']},
+      {ruleId:'ps03',name:'O365/Risky Configuration Change',isActive:true,applications:[{name:'Office 365'}],remediationActions:{},notifications:{platform:{templates:[]},admin:{isActive:false},endUser:{isActive:false}},priority:14,severity:'MEDIUM',category:'configuration_and_security_posture',activities:[],knownThreats:[{name:'List Configuration Change'}],tags:['it-tag-suspicious-activity']},
+    ],
+    analyze(rules){
+      const _norm=r=>{
+        const appNames=(r.applications||[]).map(a=>a.name||a).join(', ')||r.app||'Unknown';
+        const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
+        const hasRemediation=remActions.length>0;
+        const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
+        const hasNotification=notifTemplates.length>0||(r.notifications?.admin?.isActive)||(r.notifications?.endUser?.isActive);
+        const activities=(r.activities||[]).map(a=>a.name||a).join(', ');
+        const threats=(r.knownThreats||[]).map(t=>t.name||t).join(', ');
+        const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
+        return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
+          severity:(r.severity||'').toUpperCase(),category:r.category||'',
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,
+          activities,threats,tags:(r.tags||[])};
+      };
+      const norm=rules.map(r=>_norm(r));
+      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
+
+      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
+        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
+        issues.noRemediation.push({sev,name:r.name,
+          detail:`Security posture rule with no automated response. Apps: ${r.appNames}. Activity: ${r.activities||r.threats||'—'}`,
+          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
+          rec:'Add remediation (Revoke Session) to enforce response to admin setting changes.'});
+      });
+      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+        issues.noNotification.push({sev:'warning',name:r.name,
+          detail:`Security posture rule fires silently. Apps: ${r.appNames}`,
+          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
+          rec:'Add platform notification so configuration changes alert the security team.'});
+      });
+      norm.filter(r=>!r.isActive).forEach(r=>{
+        issues.inactive.push({sev:'warning',name:r.name,
+          detail:`Security posture rule inactive. Apps: ${r.appNames}`,
+          tags:[{v:'INACTIVE',c:'y'},{v:r.appNames}],rec:'Re-enable or delete.'});
+      });
+      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+        issues.testRules.push({sev:'warning',name:r.name,
+          detail:`Test rule active in production. Apps: ${r.appNames}`,
+          tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
+      });
+      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6}),rules,'rules');
+    },
+    render(pid,mid,result){
+      const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
+      const norm=result.rules.map(r=>_n(r));
+      const active=norm.filter(r=>r.isActive).length;
+      const withRem=norm.filter(r=>r.isActive&&r.hasRem).length;
+      const critical=norm.filter(r=>r.severity==='CRITICAL').length;
+      wrapRender(pid,mid,result,'SharePoint admin changes, auth settings, configuration security posture',
+        [{n:norm.length,l:'Total Rules',c:'blue'},{n:active,l:'Active',c:'green'},
+         {n:critical,l:'Critical Sev',c:'red',link:`${pid}-${mid}-nr`},
+         {n:active-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
+         {n:result.issues.noNotification.length,l:'Silent',c:'yellow',link:`${pid}-${mid}-nn`}],
+        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Posture rules with no automated response',issues:result.issues.noRemediation},
+         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates configured',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still in production',issues:result.issues.testRules},
+         {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules',issues:result.issues.inactive}]);
     }
   },
   admin:{
