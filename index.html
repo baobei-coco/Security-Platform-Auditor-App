@@ -661,73 +661,22 @@ function launchPlatform(pid){
     const stored=JSON.parse(localStorage.getItem(lsKey(pid))||'{}');
     const defs=MODULE_DEFS[pid]||{};
     // For Proofpoint: if casb contains mixed categories (unsplit), re-split by category
-    if(pid==='pp'&&stored.casb&&stored.casb.length){
-    // Extract expression predicate attributes
-    const _getAttrs=node=>{const s=new Set();const walk=n=>{if(!n)return;if(Array.isArray(n)){n.forEach(walk);}else if(typeof n==='object'){if(n.type==='rule_predicate'&&n.attribute)s.add(n.attribute);Object.values(n).forEach(walk);}};walk(node);return s;};
-    const _routeRecord=r=>{
-      const cat=r.category||'';
-      const name=(r.name||'').toLowerCase();
-      const attrs=_getAttrs(r.expression||{});
-      const acts=(r.activities||[]).map(a=>a.name||'').join(' ').toLowerCase();
-      const threats=(r.knownThreats||[]).map(t=>t.name||'').join(' ').toLowerCase();
-      if(cat==='access'){
-        if(attrs.has('vap')||/vap/.test(name))return'humanrisk';
-        if(attrs.has('risk_groups')||attrs.has('risk_level'))return'users';
-        return'casb';
-      }
-      if(cat==='data'){
-        if(attrs.has('suspicious_file_activity_type')||/suspicious/.test(threats))return'dsw';
-        if(attrs.has('detection_severity')||/anomalous/.test(threats))return'dsw';
-        if(/repository|copilot|instant message/.test(acts))return'dsw';
-        return'dlp';
-      }
-      if(cat==='app_governance'){
-        if(attrs.has('app_classification'))return'isolation';
-        if(attrs.has('vap')||attrs.has('risk_groups'))return'humanrisk';
-        return'appsec';
-      }
-      if(cat==='configuration_and_security_posture'){
-        if(/mailbox|mail activity|send on behalf|send as/.test(acts)||/suspicious mail/.test(threats))return'email';
-        return'posture';
-      }
-      return'casb';
-    };
-      const categoryMap={access:r=>_routeRecord(r),data:r=>_routeRecord(r),app_governance:r=>_routeRecord(r),configuration_and_security_posture:r=>_routeRecord(r)};
-      const hasMixedCategories=stored.casb.length>21||stored.casb.some(r=>r.category!=='access');
-      if(hasMixedCategories){
+    // Proofpoint: re-route any stale/misrouted storage to correct modules
+    if(pid==='pp'){
+      const _r=r=>{const cat=r.category||'';const acts=(r.activities||[]).map(a=>a.name||'').join(' ').toLowerCase();const thr=(r.knownThreats||[]).map(t=>t.name||'').join(' ').toLowerCase();const getA=node=>{const s=new Set();const w=n=>{if(!n)return;if(Array.isArray(n)){n.forEach(w);}else if(typeof n==='object'){if(n.type==='rule_predicate'&&n.attribute)s.add(n.attribute);Object.values(n).forEach(w);}};w(node);return s;};const attrs=getA(r.expression||{});if(cat==='access')return'casb';if(cat==='data'){if(attrs.has('suspicious_file_activity_type')||/suspicious/.test(thr))return'dsw';if(attrs.has('detection_severity')||/anomalous/.test(thr))return'dsw';if(/repository|copilot|instant message/.test(acts))return'dsw';return'dlp';}if(cat==='app_governance')return'appsec';if(cat==='configuration_and_security_posture'){if(/mailbox|mail activity|send on behalf|send as/.test(acts)||/suspicious mail/.test(thr))return'email';return'posture';}return'casb';};
+      // Collect ALL stored pp records across all keys and re-route
+      const allRecords=[];
+      const knownMids=['casb','dlp','dsw','email','appsec','posture','humanrisk','users','isolation','tap','riskconfig','dataclass','admin'];
+      knownMids.forEach(m=>{if(stored[m]&&stored[m].length&&stored[m][0]&&stored[m][0].category){allRecords.push(...stored[m]);}});
+      if(allRecords.length>0){
+        // Re-route everything
         const buckets={};
-        stored.casb.forEach(r=>{
-          const mid=categoryMap[r.category]?categoryMap[r.category](r):'casb';
-          if(!buckets[mid])buckets[mid]=[];
-          buckets[mid].push(r);
-        });
-        // Save split data — don't overwrite manually imported module data
-        Object.entries(buckets).forEach(([mid,records])=>{
-          if(!stored[mid]||stored[mid].length===0) saveToStorage(pid,mid,records);
-        });
-        // Update in-memory stored object with split data (only new keys)
-        Object.entries(buckets).forEach(([mid,records])=>{
-          if(!stored[mid]||stored[mid].length===0) stored[mid]=records;
-        });
+        allRecords.forEach(r=>{const m=_r(r);if(!buckets[m])buckets[m]=[];buckets[m].push(r);});
+        // Clear old misrouted keys and save correct buckets
+        ['humanrisk','users','isolation'].forEach(m=>{if(stored[m]&&stored[m].length&&stored[m][0]&&stored[m][0].category){saveToStorage(pid,m,[]);stored[m]=[];}});
+        Object.entries(buckets).forEach(([m,recs])=>{saveToStorage(pid,m,recs);stored[m]=recs;});
       }
     }
-    // Re-split dsw if it has records that belong to other modules (unsplit state)
-    if(pid==='pp'&&stored.dsw&&stored.dsw.length>18){
-      const _getA2=node=>{const s=new Set();const walk=n=>{if(!n)return;if(Array.isArray(n)){n.forEach(walk);}else if(typeof n==='object'){if(n.type==='rule_predicate'&&n.attribute)s.add(n.attribute);Object.values(n).forEach(walk);}};walk(node);return s;};
-      const _route2=r=>{const cat=r.category||'';const name=(r.name||'').toLowerCase();const attrs=_getA2(r.expression||{});const acts=(r.activities||[]).map(a=>a.name||'').join(' ').toLowerCase();const threats=(r.knownThreats||[]).map(t=>t.name||'').join(' ').toLowerCase();if(cat==='access'){if(attrs.has('vap')||/vap/.test(name))return'humanrisk';if(attrs.has('risk_groups')||attrs.has('risk_level'))return'users';return'casb';}if(cat==='data'){if(attrs.has('suspicious_file_activity_type')||/suspicious/.test(threats))return'dsw';if(attrs.has('detection_severity')||/anomalous/.test(threats))return'dsw';if(/repository|copilot|instant message/.test(acts))return'dsw';return'dlp';}if(cat==='app_governance'){if(attrs.has('app_classification'))return'isolation';if(attrs.has('vap')||attrs.has('risk_groups'))return'humanrisk';return'appsec';}if(cat==='configuration_and_security_posture'){if(/mailbox|mail activity|send on behalf|send as/.test(acts)||/suspicious mail/.test(threats))return'email';return'posture';}return'casb';};
-      const buckets={};
-      stored.dsw.forEach(r=>{
-        const mid=_route2(r);
-        if(!buckets[mid])buckets[mid]=[];
-        buckets[mid].push(r);
-      });
-      // Save split data — don't overwrite manually imported module data
-      Object.entries(buckets).forEach(([mid,records])=>{
-        if(!stored[mid]||stored[mid].length===0) saveToStorage(pid,mid,records);
-      });
-      Object.entries(buckets).forEach(([mid,records])=>{
-        if(!stored[mid]||stored[mid].length===0) stored[mid]=records;
-      });
     }
     Object.keys(stored).forEach(mid=>{
       if(defs[mid]&&stored[mid]&&stored[mid].length){
@@ -1008,30 +957,21 @@ function splitAndImport(pid, mid, data, force=false){
   // Only auto-split when: not forced, it's pp, data has category field,
   // AND the target mid is casb (bulk import) not a specific user-chosen module
   if(!force&&pid==='pp'&&hasCategoryField&&mid==='casb'){
-    // Extract expression predicate attributes
+    // Route records to modules matching Proofpoint's 4-category structure
     const _getAttrs=node=>{const s=new Set();const walk=n=>{if(!n)return;if(Array.isArray(n)){n.forEach(walk);}else if(typeof n==='object'){if(n.type==='rule_predicate'&&n.attribute)s.add(n.attribute);Object.values(n).forEach(walk);}};walk(node);return s;};
     const _routeRecord=r=>{
       const cat=r.category||'';
-      const name=(r.name||'').toLowerCase();
-      const attrs=_getAttrs(r.expression||{});
       const acts=(r.activities||[]).map(a=>a.name||'').join(' ').toLowerCase();
       const threats=(r.knownThreats||[]).map(t=>t.name||'').join(' ').toLowerCase();
-      if(cat==='access'){
-        if(attrs.has('vap')||/vap/.test(name))return'humanrisk';
-        if(attrs.has('risk_groups')||attrs.has('risk_level'))return'users';
-        return'casb';
-      }
+      const attrs=_getAttrs(r.expression||{});
+      if(cat==='access') return'casb';
       if(cat==='data'){
         if(attrs.has('suspicious_file_activity_type')||/suspicious/.test(threats))return'dsw';
         if(attrs.has('detection_severity')||/anomalous/.test(threats))return'dsw';
         if(/repository|copilot|instant message/.test(acts))return'dsw';
         return'dlp';
       }
-      if(cat==='app_governance'){
-        if(attrs.has('app_classification'))return'isolation';
-        if(attrs.has('vap')||attrs.has('risk_groups'))return'humanrisk';
-        return'appsec';
-      }
+      if(cat==='app_governance') return'appsec';
       if(cat==='configuration_and_security_posture'){
         if(/mailbox|mail activity|send on behalf|send as/.test(acts)||/suspicious mail/.test(threats))return'email';
         return'posture';
