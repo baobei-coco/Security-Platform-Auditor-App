@@ -868,38 +868,9 @@ function bulkImport(pid){
         }
         if(!Array.isArray(data)){showImportToast('⚠ Could not parse as record array');return;}
         const p=PLATFORMS[pid];
-        // Auto-split Proofpoint CASB exports by category field
-        const hasCategoryField=data.length>0&&data[0].category!==undefined;
-        if(pid==='pp'&&hasCategoryField){
-          const categoryMap={access:'casb',data:'dlp',app_governance:'casb',configuration_and_security_posture:'casb'};
-          const buckets={};
-          data.forEach(r=>{
-            const mid=categoryMap[r.category]||'casb';
-            if(!buckets[mid])buckets[mid]=[];
-            buckets[mid].push(r);
-          });
-          let count=0;
-          Object.entries(buckets).forEach(([mid,records])=>{
-            if(MODULE_DEFS[pid]&&MODULE_DEFS[pid][mid]){
-              saveToStorage(pid,mid,records);
-              processModule(pid,mid,records,false);
-              count+=records.length;
-            }
-          });
-          updateSidebarDataDots(pid);
-          const summary=Object.entries(buckets).map(([m,r])=>`${m}: ${r.length}`).join(', ');
-          showImportToast(`✓ Auto-split ${count} records — ${summary}`);
-          const firstMid=Object.keys(buckets)[0];
-          if(firstMid)switchModule(firstMid);
-        } else {
-          // Route to current module if not dash, else first module
-          const targetMid=(currentModule&&currentModule!=='dash')?currentModule:p.modules.find(m=>m.id!=='dash').id;
-          saveToStorage(pid,targetMid,data);
-          processModule(pid,targetMid,data,false);
-          updateSidebarDataDots(pid);
-          switchModule(targetMid);
-          showImportToast(`✓ Imported ${data.length} records → ${p.modules.find(m=>m.id===targetMid)?.label||targetMid}`);
-        }
+        const targetMid=(currentModule&&currentModule!=='dash')?currentModule:p.modules.find(m=>m.id!=='dash').id;
+        const landed=splitAndImport(pid,targetMid,data);
+        switchModule(landed);
       }catch(err){showImportToast('⚠ Import failed: '+err.message);}
     };
     reader.readAsText(file);
@@ -977,6 +948,42 @@ function handleImportFile(e){
   reader.readAsText(file);
   e.target.value='';
 }
+
+// ── Shared import router — splits pp data by category, otherwise routes to mid
+function splitAndImport(pid, mid, data){
+  const hasCategoryField=Array.isArray(data)&&data.length>0&&data[0].category!==undefined;
+  if(pid==='pp'&&hasCategoryField){
+    const categoryMap={
+      access:'casb', data:'dlp',
+      app_governance:'casb',
+      configuration_and_security_posture:'casb'
+    };
+    const buckets={};
+    data.forEach(r=>{
+      const m=categoryMap[r.category]||'casb';
+      if(!buckets[m])buckets[m]=[];
+      buckets[m].push(r);
+    });
+    let count=0;
+    Object.entries(buckets).forEach(([m,records])=>{
+      if(MODULE_DEFS[pid]&&MODULE_DEFS[pid][m]){
+        saveToStorage(pid,m,records);
+        processModule(pid,m,records,false);
+        count+=records.length;
+      }
+    });
+    updateSidebarDataDots(pid);
+    const summary=Object.entries(buckets).map(([m,r])=>`${m}: ${r.length}`).join(', ');
+    showImportToast(`✓ Auto-split ${count} records — ${summary}`);
+    return Object.keys(buckets)[0]||mid;
+  } else {
+    saveToStorage(pid,mid,data);
+    processModule(pid,mid,data,false);
+    updateSidebarDataDots(pid);
+    showImportToast(`✓ Imported ${data.length} records → ${mid}`);
+    return mid;
+  }
+}
 function applyImport(){
   const text=document.getElementById('importTextarea').value.trim();
   if(!text){alert('Paste or upload some data first.');return;}
@@ -984,21 +991,14 @@ function applyImport(){
   try{
     const parsed=parseImportInput(text,importState.fmt);
     if(Array.isArray(parsed)){
-      saveToStorage(pid,mid,parsed);
-      processModule(pid,mid,parsed,false);
-      updateImportTabDot(mid,true);
-      updateSidebarDataDots(pid);
-      showImportToast(`✓ Imported ${parsed.length} records → ${mid}`);
+      const landed=splitAndImport(pid,mid,parsed);
+      updateImportTabDot(landed,true);
     } else {
-      let count=0;
+      // Object with module keys — route each key directly
       Object.entries(parsed).forEach(([m,d])=>{
-        saveToStorage(pid,m,d);
-        processModule(pid,m,d,false);
+        splitAndImport(pid,m,d);
         updateImportTabDot(m,true);
-        count++;
       });
-      updateSidebarDataDots(pid);
-      showImportToast(`✓ Imported data into ${count} modules`);
     }
     closeImportModal();
   }catch(e){alert('Import failed: '+e.message);}
