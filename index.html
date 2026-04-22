@@ -519,15 +519,13 @@ const PLATFORMS = {
     modules:[
       {id:'dash',icon:'⬡',label:'Dashboard'},
       {id:'casb',icon:'☁',label:'CASB'},
-      {id:'email',icon:'✉',label:'Email Security'},
       {id:'dlp',icon:'🔒',label:'DLP'},
       {id:'dsw',icon:'🔍',label:'Data Security WB'},
+      {id:'email',icon:'✉',label:'Email Security'},
       {id:'appsec',icon:'🧩',label:'App Governance'},
       {id:'posture',icon:'🏛',label:'Security Posture'},
+      {id:'itp',icon:'🖥',label:'Policy Rules'},
       {id:'tap',icon:'🎯',label:'TAP'},
-      {id:'users',icon:'👤',label:'Users & Groups'},
-      {id:'isolation',icon:'🛡',label:'Isolation'},
-      {id:'humanrisk',icon:'⚠',label:'Human Risk'},
       {id:'riskconfig',icon:'⚙',label:'Risk Config'},
       {id:'dataclass',icon:'🏷',label:'Data Classification'},
       {id:'admin',icon:'🔧',label:'Administration'},
@@ -1533,6 +1531,134 @@ pp:{
          {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Shared priority — unpredictable evaluation order',issues:result.issues.dupPriority},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still enabled in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled — confirm intentional or remove',issues:result.issues.inactive}]);
+    }
+  },
+  itp:{
+    demo:()=>({data:[
+      {id:'d1',details:{name:'Endpoint/Detect/SSN-DefiniteExfiltration'},actions:[{kind:'it:rule:action:kind:incident',parameters:{severity:'incident:severity:600:high'}},{kind:'it:rule:action:kind:tagging',parameters:{tags:['t1']}}],target:{defaults:[{kind:'endpoint:agent'}]},iver:4},
+      {id:'d2',details:{name:'Endpoint/Detect/HIPAA-DefiniteExfiltration'},actions:[{kind:'it:rule:action:kind:incident',parameters:{severity:'incident:severity:600:high'}},{kind:'it:rule:action:kind:tagging',parameters:{tags:['t1']}}],target:{defaults:[{kind:'endpoint:agent'}]},iver:3},
+      {id:'d3',details:{name:'Endpoint/Detect/Running TOR browser'},actions:[{kind:'it:rule:action:kind:incident',parameters:{severity:'incident:severity:800:critical'}}],target:{defaults:[{kind:'endpoint:agent'}]},iver:0},
+      {id:'d4',details:{name:'TST/Endpoint/Prevent/GenAI-Upload-SSNs'},actions:[{kind:'it:rule:action:kind:prevention:syscall:prompt'}],target:{defaults:[]},iver:0},
+      {id:'d5',details:{name:'TEST CASE - Endpoint Justification - SSN'},actions:[{kind:'it:rule:action:kind:prevention:syscall:prompt'}],target:{defaults:[]},iver:13},
+      {id:'d6',details:{name:'Judson-Test/Detect/SSN-Exfil-NOTIFY'},actions:[{kind:'it:rule:action:kind:activity:patch'},{kind:'it:rule:action:kind:notification'},{kind:'it:rule:action:kind:tagging',parameters:{tags:['t1']}}],target:{defaults:[{kind:'endpoint:agent'}]},iver:1},
+      {id:'d7',details:{name:'PoC-Prevention-NotApprovedUSBs'},actions:[{kind:'it:rule:action:kind:prevention:syscall:block'}],target:{defaults:[]},iver:5},
+      {id:'d8',details:{name:'Endpoint/Detect/TextSubmitted2GenAISite'},actions:[{kind:'it:rule:action:kind:incident',parameters:{severity:'incident:severity:200:low'}},{kind:'it:rule:action:kind:tagging',parameters:{tags:['t1']}}],target:{defaults:[]},iver:1},
+    ]}),
+    analyze(raw){
+      // Accept both raw API response ({data:[...]}) and flat array
+      const rules=Array.isArray(raw)?raw:(raw.data||[]);
+      const _norm=r=>{
+        const name=r.details?.name||r.name||'Unnamed Rule';
+        const acts=r.actions||[];
+        const incidentAct=acts.find(a=>a.kind==='it:rule:action:kind:incident');
+        const sevRaw=incidentAct?.parameters?.severity||'';
+        const sevMap={'low':'LOW','medium':'MEDIUM','high':'HIGH','critical':'CRITICAL'};
+        const sev=sevMap[sevRaw.split(':').pop()]||'—';
+        const hasIncident=!!incidentAct;
+        const hasNotification=acts.some(a=>a.kind==='it:rule:action:kind:notification');
+        const hasBlock=acts.some(a=>a.kind.includes('block'));
+        const hasPrompt=acts.some(a=>a.kind.includes('prompt'));
+        const hasRedact=acts.some(a=>a.kind.includes('data-redact'));
+        const hasPatch=acts.some(a=>a.kind==='it:rule:action:kind:activity:patch');
+        const hasTagging=acts.some(a=>a.kind==='it:rule:action:kind:tagging');
+        const hasEnable=acts.some(a=>a.kind.includes('enable'));
+        const targets=r.target?.defaults||[];
+        const isEndpoint=targets.some(t=>t.kind==='endpoint:agent');
+        const isCasb=targets.some(t=>t.kind==='cloud:casb');
+        const isTestRule=/^(tst|test|poc|judson)/i.test(name);
+        const isOnDemand=/on.demand/i.test(name);
+        const actionTypes=[];
+        if(hasBlock)actionTypes.push('Block');
+        if(hasPrompt)actionTypes.push('Prompt');
+        if(hasRedact)actionTypes.push('Redact');
+        if(hasIncident)actionTypes.push('Alert');
+        if(hasNotification)actionTypes.push('Notify');
+        if(hasTagging)actionTypes.push('Tag');
+        if(hasPatch)actionTypes.push('Patch');
+        if(hasEnable)actionTypes.push('Enable');
+        return{id:r.id,name,sev,hasIncident,hasNotification,hasBlock,hasPrompt,
+          hasRedact,hasPatch,hasTagging,hasEnable,isEndpoint,isCasb,
+          isTestRule,isOnDemand,actionTypes,iver:r.iver||0};
+      };
+      const norm=rules.map(r=>_norm(r));
+      const issues={alertOnly:[],testInProd:[],noSeverity:[],onDemandActive:[],noNotification:[]};
+
+      // Alert-only rules (incident but no block/prompt/redact/notify) for high+ sev
+      norm.filter(r=>r.hasIncident&&!r.hasBlock&&!r.hasPrompt&&!r.hasRedact&&!r.hasNotification&&(r.sev==='CRITICAL'||r.sev==='HIGH')&&!r.isTestRule).forEach(r=>{
+        issues.alertOnly.push({sev:r.sev==='CRITICAL'?'critical':'warning',name:r.name,
+          detail:`${r.sev} severity rule only generates an alert — no blocking, prompting, or notification. Actions: ${r.actionTypes.join(', ')}`,
+          tags:[{v:'ALERT ONLY',c:'y'},{v:r.sev,c:r.sev==='CRITICAL'?'r':'y'}],
+          rec:'Consider adding a notification or escalating to block/prompt for high-severity endpoint threats.'});
+      });
+
+      // Test/PoC rules with high iver (heavily modified = actively being used)
+      norm.filter(r=>r.isTestRule&&r.iver>5).forEach(r=>{
+        issues.testInProd.push({sev:'warning',name:r.name,
+          detail:`Test/PoC rule modified ${r.iver} times — likely being used in production without proper naming. Actions: ${r.actionTypes.join(', ')}`,
+          tags:[{v:'TEST IN PROD',c:'y'},{v:`iver=${r.iver}`,c:'y'}],
+          rec:'Rename to production convention (Endpoint/Detect/...) or remove if no longer needed.'});
+      });
+
+      // Rules with no severity (prevention/block/prompt with no incident action)
+      norm.filter(r=>!r.hasIncident&&!r.isTestRule&&!r.isOnDemand).forEach(r=>{
+        issues.noSeverity.push({sev:'warning',name:r.name,
+          detail:`Rule has no incident/severity — events won't appear in incident queue. Actions: ${r.actionTypes.join(', ')}`,
+          tags:[{v:'NO SEVERITY',c:'y'},{v:r.actionTypes.join('/')}],
+          rec:'Add an incident action with appropriate severity so events are tracked and triaged.'});
+      });
+
+      // On-demand rules that are heavily modified (may be stuck on)
+      norm.filter(r=>r.isOnDemand&&r.iver>8).forEach(r=>{
+        issues.onDemandActive.push({sev:'warning',name:r.name,
+          detail:`On-demand rule modified ${r.iver} times — verify it's not permanently enabled. Actions: ${r.actionTypes.join(', ')}`,
+          tags:[{v:'ON-DEMAND',c:'b'},{v:`iver=${r.iver}`}],
+          rec:'Confirm on-demand rules are disabled when not in active use.'});
+      });
+
+      // High/critical rules with no notification
+      norm.filter(r=>r.hasIncident&&!r.hasNotification&&(r.sev==='CRITICAL'||r.sev==='HIGH')&&!r.isTestRule&&!r.isOnDemand).forEach(r=>{
+        issues.noNotification.push({sev:'warning',name:r.name,
+          detail:`${r.sev} severity rule has no real-time notification. Incidents only appear in queue. Actions: ${r.actionTypes.join(', ')}`,
+          tags:[{v:'NO NOTIFICATION',c:'y'},{v:r.sev,c:r.sev==='CRITICAL'?'r':'y'}],
+          rec:'Add a notification action so high-severity endpoint events alert the team in real time.'});
+      });
+
+      return makeResult(issues,calcScore(issues,{alertOnly:12,testInProd:8,noSeverity:10,onDemandActive:6,noNotification:10}),rules,'rules');
+    },
+    render(pid,mid,result){
+      const rules=Array.isArray(result.rules)?result.rules:(result.rules?.data||[]);
+      const _n=r=>{
+        const acts=r.actions||[];
+        const incAct=acts.find(a=>a.kind==='it:rule:action:kind:incident');
+        const sevRaw=incAct?.parameters?.severity||'';
+        const sevMap={'low':'LOW','medium':'MEDIUM','high':'HIGH','critical':'CRITICAL'};
+        const sev=sevMap[sevRaw.split(':').pop()]||'—';
+        return{sev,
+          hasBlock:acts.some(a=>a.kind.includes('block')),
+          hasPrompt:acts.some(a=>a.kind.includes('prompt')),
+          hasRedact:acts.some(a=>a.kind.includes('data-redact')),
+          hasNotif:acts.some(a=>a.kind.includes('notification')),
+          hasIncident:!!incAct,
+          isTest:/^(tst|test|poc|judson)/i.test(r.details?.name||'')};
+      };
+      const norm=rules.map(r=>_n(r));
+      const total=norm.length;
+      const withBlock=norm.filter(r=>r.hasBlock).length;
+      const withPrompt=norm.filter(r=>r.hasPrompt).length;
+      const withRedact=norm.filter(r=>r.hasRedact).length;
+      const critical=norm.filter(r=>r.sev==='CRITICAL').length;
+      const testRules=norm.filter(r=>r.isTest).length;
+      wrapRender(pid,mid,result,'Endpoint/ITM policy rules — alert, block, prompt, notify, redact coverage',
+        [{n:total,l:'Total Rules',c:'blue'},
+         {n:critical,l:'Critical',c:'red'},
+         {n:withBlock+withPrompt+withRedact,l:'Prevention',c:'green'},
+         {n:testRules,l:'Test/PoC',c:'yellow',link:`${pid}-${mid}-tp`},
+         {n:result.issues.noNotification.length,l:'No Notify',c:'yellow',link:`${pid}-${mid}-nn`}],
+        [{id:`\${pid}-\${mid}-ao`,icon:'⚠️',title:'Alert-Only High/Critical Rules',desc:'High severity rules with no block, prompt, or notification',issues:result.issues.alertOnly},
+         {id:`\${pid}-\${mid}-nn`,icon:'🔕',title:'No Notification on High/Critical',desc:'High severity rules that only appear in incident queue',issues:result.issues.noNotification},
+         {id:`\${pid}-\${mid}-ns`,icon:'❓',title:'No Severity / Alert Action',desc:'Rules with no incident tracking',issues:result.issues.noSeverity},
+         {id:`\${pid}-\${mid}-tp`,icon:'🧪',title:'Test/PoC Rules in Production',desc:'Test or proof-of-concept rules actively modified',issues:result.issues.testInProd},
+         {id:`\${pid}-\${mid}-od`,icon:'🔁',title:'On-Demand Rules — Verify Status',desc:'On-demand rules with high modification count',issues:result.issues.onDemandActive}]);
     }
   },
   tap:{
