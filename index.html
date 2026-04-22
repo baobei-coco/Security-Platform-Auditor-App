@@ -951,9 +951,9 @@ function handleImportFile(e){
 //    or saves directly to the specified module when force=true
 function splitAndImport(pid, mid, data, force=false){
   const hasCategoryField=Array.isArray(data)&&data.length>0&&data[0].category!==undefined;
-  // Only auto-split when: not forced, it's pp, data has category field,
-  // AND the target mid is casb (bulk import) not a specific user-chosen module
-  if(!force&&pid==='pp'&&hasCategoryField&&mid==='casb'){
+  // Always auto-split pp CASB JSON if it has category field — regardless of which
+  // module the user imported from or whether force=true
+  if(pid==='pp'&&hasCategoryField){
     // Route records to modules matching Proofpoint's 4-category structure
     const _getAttrs=node=>{const s=new Set();const walk=n=>{if(!n)return;if(Array.isArray(n)){n.forEach(walk);}else if(typeof n==='object'){if(n.type==='rule_predicate'&&n.attribute)s.add(n.attribute);Object.values(n).forEach(walk);}};walk(node);return s;};
     const _routeRecord=r=>{
