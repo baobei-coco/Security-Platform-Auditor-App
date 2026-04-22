@@ -1648,8 +1648,9 @@ pp:{
       const withRedact=norm.filter(r=>r.hasRedact).length;
       const critical=norm.filter(r=>r.sev==='CRITICAL').length;
       const testRules=norm.filter(r=>r.isTest).length;
+      const prodRules=norm.filter(r=>!r.isTest).length;
       wrapRender(pid,mid,result,'Endpoint/ITM policy rules — alert, block, prompt, notify, redact coverage',
-        [{n:total,l:'Total Rules',c:'blue'},
+        [{n:prodRules,l:'Production Rules',c:'blue'},
          {n:critical,l:'Critical',c:'red'},
          {n:withBlock+withPrompt+withRedact,l:'Prevention',c:'green'},
          {n:testRules,l:'Test/PoC',c:'yellow',link:`${pid}-${mid}-tp`},
