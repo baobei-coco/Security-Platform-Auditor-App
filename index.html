@@ -271,13 +271,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // ── Recommendations PDF (written report) ─────────────────────────────────────
 function exportRecommendationsPDF(){
   document.getElementById('export-menu').style.display='none';
-
-  // Check jsPDF loaded
   const jsPDFLib = window.jspdf || window.jsPDF;
-  if(!jsPDFLib){
-    alert('PDF library not loaded yet. Please wait a moment and try again.');
-    return;
-  }
+  if(!jsPDFLib){ alert('PDF library not loaded yet.'); return; }
   const {jsPDF} = jsPDFLib;
 
   const pid=currentPlatform;
@@ -285,7 +280,6 @@ function exportRecommendationsPDF(){
   const data=_getExportData(pid);
   const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
-  // Flatten all issues sorted critical first
   const allFindings=[];
   data.forEach(({mid,label,result,isDemo})=>{
     if(!result) return;
@@ -293,8 +287,17 @@ function exportRecommendationsPDF(){
       issues.forEach(issue=>allFindings.push({module:label,mid,isDemo,issue,key}));
     });
   });
-  const sevOrder={critical:0,warning:1,info:2};
-  allFindings.sort((a,b)=>(sevOrder[a.issue.sev]??3)-(sevOrder[b.issue.sev]??3));
+  allFindings.sort((a,b)=>({critical:0,warning:1,info:2}[a.issue.sev]??3)-({critical:0,warning:1,info:2}[b.issue.sev]??3));
+
+  console.log('Total findings:', allFindings.length);
+  allFindings.slice(0,3).forEach((f,i)=>{
+    console.log(`Finding ${i}:`, {
+      name: f.issue.name, nameType: typeof f.issue.name,
+      detail: f.issue.detail, detailType: typeof f.issue.detail,
+      rec: f.issue.rec, recType: typeof f.issue.rec,
+      module: f.module, sev: f.issue.sev
+    });
+  });
 
   const critCount=allFindings.filter(f=>f.issue.sev==='critical').length;
   const warnCount=allFindings.filter(f=>f.issue.sev==='warning').length;
@@ -305,82 +308,74 @@ function exportRecommendationsPDF(){
     const W=210,ml=16,mr=16,cw=W-ml-mr;
     let y=0;
 
-    const rgb=hex=>{
-      const h=hex.replace('#','');
-      return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
-    };
+    const rgb=hex=>{const h=(hex||'#888888').replace('#','');return[parseInt(h.slice(0,2),16)||0,parseInt(h.slice(2,4),16)||0,parseInt(h.slice(4,6),16)||0];};
     const fill=hex=>{const[r,g,b]=rgb(hex);doc.setFillColor(r,g,b);};
     const text=hex=>{const[r,g,b]=rgb(hex);doc.setTextColor(r,g,b);};
     const draw=hex=>{const[r,g,b]=rgb(hex);doc.setDrawColor(r,g,b);};
 
     const PURPLE='#1a0d2e',ACCENT='#e91e8c',LAV='#c9b8e8';
     const CR='#c62828',WR='#e65100',IR='#1565c0';
-
     const sevColor=s=>s==='critical'?CR:s==='warning'?WR:IR;
     const sevLabel=s=>s==='critical'?'CRITICAL':s==='warning'?'WARNING':'INFO';
 
-    const checkY=(need=30)=>{ if(y+need>275){ doc.addPage(); addHdr(); y=22; } };
+    // Safe text helper — always returns non-empty string
+    const safe=v=>{ const s=String(v==null?'':v).trim(); return s||' '; };
 
     const addHdr=()=>{
       fill(PURPLE); doc.rect(0,0,W,12,'F');
       fill(ACCENT); doc.rect(0,0,5,12,'F');
       text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-      doc.text(`${p.name} — Recommendations Report`,10,8);
+      doc.text(safe(`${p.name} - Recommendations Report`),10,8);
       text('#a896c8'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.text(now,W-mr,8,{align:'right'});
+      doc.text(safe(now),W-mr,8,{align:'right'});
     };
 
-    // ── COVER PAGE ──────────────────────────────────────────────────────────
+    const checkY=(need=30)=>{ if(y+need>275){ doc.addPage(); addHdr(); y=22; } };
+
+    console.log('Starting cover page...');
+    // COVER
     fill(PURPLE); doc.rect(0,0,W,297,'F');
     fill(ACCENT); doc.rect(0,0,5,297,'F');
-
     text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(24);
-    doc.text(p.name,16,65);
+    doc.text(safe(p.name),16,65);
     doc.setFontSize(14); doc.setFont('helvetica','normal');
     text(LAV); doc.text('Security Recommendations Report',16,76);
     doc.setFontSize(10); text('#9880b8');
     doc.text('Findings, risk analysis and remediation guidance',16,85);
-    doc.text(`Generated: ${now}`,16,92);
+    doc.text(safe(now),16,92);
 
-    // Summary count boxes
     const boxes=[
-      {l:'Critical',v:critCount,c:CR},
-      {l:'Warnings',v:warnCount,c:WR},
-      {l:'Info',v:infoCount,c:IR},
-      {l:'Total',v:allFindings.length,c:'#ffffff'},
+      {l:'Critical',v:critCount,c:CR},{l:'Warnings',v:warnCount,c:WR},
+      {l:'Info',v:infoCount,c:IR},{l:'Total',v:allFindings.length,c:'#ffffff'},
     ];
     boxes.forEach(({l,v,c},i)=>{
       const bx=16+i*46;
       fill('#2a1a42'); doc.roundedRect(bx,115,40,26,2,2,'F');
       const[cr,cg,cb]=rgb(c); doc.setTextColor(cr,cg,cb);
       doc.setFont('helvetica','bold'); doc.setFontSize(18);
-      doc.text(String(v),bx+20,130,{align:'center'});
+      doc.text(safe(String(v)),bx+20,130,{align:'center'});
       doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-      text('#9880b8'); doc.text(l,bx+20,138,{align:'center'});
+      text('#9880b8'); doc.text(safe(l),bx+20,138,{align:'center'});
     });
 
-    text('#9880b8'); doc.setFontSize(9);
-    doc.text(`${data.length} modules analysed  ·  Platform: ${p.name}`,16,160);
+    console.log('Cover done. Starting summary...');
 
-    // ── EXECUTIVE SUMMARY ───────────────────────────────────────────────────
+    // EXECUTIVE SUMMARY
     doc.addPage(); addHdr(); y=22;
-
     text(PURPLE); doc.setFont('helvetica','bold'); doc.setFontSize(15);
     doc.text('Executive Summary',ml,y); y+=7;
     draw(ACCENT); doc.setLineWidth(0.6); doc.line(ml,y,ml+cw,y); y+=7;
 
     doc.setFont('helvetica','normal'); doc.setFontSize(9.5); text('#333333');
-    const intro=`This report presents a comprehensive audit of the ${p.name} security platform. `+
+    const intro=safe(`This report presents a comprehensive audit of the ${p.name} security platform. `+
       `${data.length} modules were analysed, identifying ${allFindings.length} findings: `+
-      `${critCount} critical requiring immediate action, ${warnCount} warnings for near-term remediation, `+
-      `and ${infoCount} informational observations.`;
+      `${critCount} critical, ${warnCount} warnings, ${infoCount} informational.`);
     const introL=doc.splitTextToSize(intro,cw);
     doc.text(introL,ml,y); y+=introL.length*5+8;
 
-    // Module table header
+    // MODULE TABLE
     doc.setFont('helvetica','bold'); doc.setFontSize(11); text(PURPLE);
     doc.text('Module Health Overview',ml,y); y+=6;
-
     fill('#2d1b4e'); doc.rect(ml,y-4,cw,7,'F');
     text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(8);
     doc.text('Module',ml+2,y);
@@ -398,88 +393,84 @@ function exportRecommendationsPDF(){
       const warn=Object.values(result?.issues||{}).flat().filter(x=>x.sev==='warning').length;
       const tot=Object.values(result?.issues||{}).flat().length;
       const sc=score>=80?'#2e7d32':score>=60?'#e65100':'#c62828';
-
       if(i%2===0){fill('#f8f6fc');}else{fill('#ffffff');}
       doc.rect(ml,y-4,cw,7,'F');
-
       doc.setFont('helvetica','bold'); doc.setFontSize(8); text('#1a0d2e');
-      const safeLabel=String(label||'').trim()||'—';
-      doc.text(safeLabel.length>22?safeLabel.slice(0,21)+'\u2026':safeLabel,ml+2,y);
+      const lbl=safe(label).slice(0,22);
+      doc.text(lbl,ml+2,y);
       doc.setFont('helvetica','normal');
-      const[dr,dg,db]=rgb(isDemo?'#e65100':'#2e7d32');
-      doc.setTextColor(dr,dg,db); doc.text(isDemo?'Demo':'Real',ml+72,y);
-      const[sr,sg,sb]=rgb(sc); doc.setTextColor(sr,sg,sb);
-      doc.setFont('helvetica','bold'); doc.text(String(score),ml+94,y);
+      const[dr,dg,db]=rgb(isDemo?'#e65100':'#2e7d32'); doc.setTextColor(dr,dg,db);
+      doc.text(isDemo?'Demo':'Real',ml+72,y);
+      const[sr2,sg2,sb2]=rgb(sc); doc.setTextColor(sr2,sg2,sb2);
+      doc.setFont('helvetica','bold'); doc.text(safe(String(score)),ml+94,y);
       doc.setFont('helvetica','normal');
-      text(crit>0?'#c62828':'#666'); doc.text(String(crit),ml+112,y);
-      text(warn>0?'#e65100':'#666'); doc.text(String(warn),ml+130,y);
-      text('#333'); doc.text(String(tot),ml+152,y);
+      text(crit>0?'#c62828':'#666'); doc.text(safe(String(crit)),ml+112,y);
+      text(warn>0?'#e65100':'#666'); doc.text(safe(String(warn)),ml+130,y);
+      text('#333'); doc.text(safe(String(tot)),ml+152,y);
       y+=7;
     });
-    y+=8;
 
-    // ── FINDINGS PAGES ───────────────────────────────────────────────────────
+    console.log('Summary done. Starting findings...');
+
+    // FINDINGS
     let lastSev='';
-    allFindings.forEach(({module,isDemo,issue})=>{
+    allFindings.forEach(({module,isDemo,issue},fi)=>{
       const sev=issue.sev||'info';
       const sc=sevColor(sev);
       const sl=sevLabel(sev);
 
       if(sev!==lastSev){
         doc.addPage(); addHdr(); y=20;
-        const secTitles={critical:'Critical Findings — Immediate Action Required',
-          warning:'Warnings — Address in Near Term',info:'Informational — For Review'};
+        const secTitles={critical:'Critical Findings - Immediate Action Required',
+          warning:'Warnings - Address in Near Term',info:'Informational - For Review'};
         const[sr,sg,sb]=rgb(sc);
         doc.setFillColor(sr,sg,sb); doc.rect(ml,y-3,cw,9,'F');
         text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text(secTitles[sev]||sev,ml+3,y+3); y+=14;
+        doc.text(safe(secTitles[sev]||sev),ml+3,y+3); y+=14;
         lastSev=sev;
       }
 
-      // Safe text splitting — never pass empty string to splitTextToSize
-      const safeName=String(issue.name||'Unnamed Rule').trim()||'Unnamed Rule';
-      const safeDetail=String(issue.detail||'').trim();
-      const safeRec=String(issue.rec||'').trim();
-      const safeMod=String(`${module||''}${isDemo?' · demo':''}`).trim()||'—';
+      // Safe values
+      const sName=safe(issue.name);
+      const sDetail=safe(issue.detail);
+      const sRec=safe(issue.rec);
+      const sMod=safe(`${module||''}${isDemo?' - demo':''}`);
+      const hasDetail=sDetail.trim().length>1;
+      const hasRec=sRec.trim().length>1;
 
-      const nameL=doc.splitTextToSize(safeName,cw-24);
-      const detL=safeDetail?doc.splitTextToSize(safeDetail,cw-8):[];
-      const recL=safeRec?doc.splitTextToSize(safeRec,cw-16):[];
+      console.log(`Finding ${fi}: name="${sName.slice(0,30)}" hasDetail=${hasDetail} hasRec=${hasRec}`);
 
-      const cardH=5+nameL.length*5+3+(detL.length?detL.length*4.5+2:0)+(recL.length?recL.length*4.5+12:0)+8;
+      const nameL=doc.splitTextToSize(sName,cw-24);
+      const detL=hasDetail?doc.splitTextToSize(sDetail,cw-8):null;
+      const recL=hasRec?doc.splitTextToSize(sRec,cw-16):null;
+
+      const cardH=5+nameL.length*5+3+(detL?detL.length*4.5+2:0)+(recL?recL.length*4.5+12:0)+8;
       checkY(cardH+4);
 
-      // Card background
       const bgHex=sev==='critical'?'#fff5f5':sev==='warning'?'#fff8f0':'#f0f4ff';
       const[br,bg2,bb]=rgb(bgHex); doc.setFillColor(br,bg2,bb);
-      doc.roundedRect(ml,y-3,cw,Math.max(cardH,12),2,2,'F');
-      // Left accent bar
+      doc.roundedRect(ml,y-3,cw,Math.max(cardH,14),2,2,'F');
       const[ar,ag,ab]=rgb(sc); doc.setFillColor(ar,ag,ab);
-      doc.rect(ml,y-3,3,Math.max(cardH,12),'F');
+      doc.rect(ml,y-3,3,Math.max(cardH,14),'F');
 
-      // Severity pill
       doc.setFillColor(ar,ag,ab);
       doc.roundedRect(ml+5,y-1,16,4.5,1,1,'F');
       text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(6);
       doc.text(sl,ml+13,y+2,{align:'center'});
 
-      // Module label
       text('#888888'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.text(safeMod,ml+24,y+2);
+      doc.text(sMod,ml+24,y+2);
       y+=6;
 
-      // Rule name
       text('#1a0d2e'); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
       doc.text(nameL,ml+5,y); y+=nameL.length*5+2;
 
-      // Detail text (only if non-empty)
-      if(detL.length){
+      if(detL){
         doc.setFont('helvetica','normal'); doc.setFontSize(8.5); text('#444444');
         doc.text(detL,ml+5,y); y+=detL.length*4.5+2;
       }
 
-      // Recommendation box (only if non-empty)
-      if(recL.length){
+      if(recL){
         y+=2;
         doc.setFillColor(232,245,233);
         doc.roundedRect(ml+5,y-2,cw-10,recL.length*4.5+8,1,1,'F');
@@ -491,17 +482,17 @@ function exportRecommendationsPDF(){
       y+=8;
     });
 
-    // Footer
+    console.log('Findings done. Saving...');
     checkY(12);
     draw('#dddddd'); doc.setLineWidth(0.3); doc.line(ml,y,ml+cw,y); y+=5;
     text('#aaaaaa'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-    doc.text(`Security Platform Auditor  ·  ${p.name}  ·  ${now}`,W/2,y,{align:'center'});
-
+    doc.text(safe(`Security Platform Auditor  -  ${p.name}  -  ${now}`),W/2,y,{align:'center'});
     doc.save(`${pid}-recommendations-${new Date().toISOString().slice(0,10)}.pdf`);
+    console.log('PDF saved!');
 
   } catch(err) {
-    console.error('PDF generation error:', err);
-    alert('PDF error: ' + err.message);
+    console.error('PDF error at step:', err);
+    alert('PDF error: ' + err.message + '\n\nCheck browser console (F12) for details.');
   }
 }
 </script>
