@@ -269,363 +269,6 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
-
-// ═══════════════════════════════════════════════════════════════
-// WORD DOCUMENT EXPORT
-// ═══════════════════════════════════════════════════════════════
-async function exportWordReport(){
-  document.getElementById('export-menu').style.display='none';
-
-  if(!window.JSZip){
-    alert('ZIP library not loaded yet. Please refresh and try again.');
-    return;
-  }
-
-  const pid=currentPlatform;
-  const p=PLATFORMS[pid];
-  const data=_getExportData(pid);
-  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-
-  // Collect findings
-  const allFindings=[];
-  data.forEach(({label,result,isDemo})=>{
-    if(!result)return;
-    Object.entries(result.issues||{}).forEach(([key,issues])=>{
-      issues.forEach(issue=>allFindings.push({module:label,isDemo,issue,key}));
-    });
-  });
-  allFindings.sort((a,b)=>({critical:0,warning:1,info:2}[a.issue.sev]??3)-({critical:0,warning:1,info:2}[b.issue.sev]??3));
-
-  const crit=allFindings.filter(f=>f.issue.sev==='critical');
-  const warn=allFindings.filter(f=>f.issue.sev==='warning');
-  const info=allFindings.filter(f=>f.issue.sev==='info');
-  const scores=data.map(d=>d.result?.score??0);
-  const avgScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
-  const weakest=data.filter(d=>d.result).sort((a,b)=>(a.result.score??0)-(b.result.score??0)).slice(0,3);
-  const demoData=data.filter(d=>d.isDemo);
-  const realData=data.filter(d=>!d.isDemo);
-  const posture=avgScore>=80?'strong':avgScore>=60?'moderate':'concerning';
-
-  // ── XML helpers ─────────────────────────────────────────────────────────────
-  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-
-  // Run with optional formatting
-  const run=(text,opts={})=>{
-    const rpr=[
-      opts.bold?'<w:b/>':'',
-      opts.italic?'<w:i/>':'',
-      opts.size?`<w:sz w:val="${opts.size}"/><w:szCs w:val="${opts.size}"/>`:''  ,
-      opts.color?`<w:color w:val="${opts.color}"/>` :'',
-      opts.font?`<w:rFonts w:ascii="${opts.font}" w:hAnsi="${opts.font}"/>`:'',
-    ].join('');
-    return `<w:r>${rpr?`<w:rPr>${rpr}</w:rPr>`:''}<w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
-  };
-
-  // Paragraph
-  const para=(children,opts={})=>{
-    const ppr=[
-      opts.style?`<w:pStyle w:val="${opts.style}"/>`:'',
-      opts.align?`<w:jc w:val="${opts.align}"/>`:'',
-      (opts.before||opts.after)?`<w:spacing w:before="${opts.before||0}" w:after="${opts.after||160}"/>`:'',
-      opts.indent?`<w:ind w:left="${opts.indent}"/>`:'',
-      opts.shade?`<w:shd w:val="clear" w:fill="${opts.shade}"/>`:'',
-      opts.border?`<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="4" w:color="e91e8c"/></w:pBdr>`:'',
-    ].join('');
-    return `<w:p>${ppr?`<w:pPr>${ppr}</w:pPr>`:''}${Array.isArray(children)?children.join(''):children}</w:p>`;
-  };
-
-  // Heading paragraph
-  const h1=(text)=>para(run(text,{bold:true,size:36,color:'1a0d2e',font:'Arial'}),
-    {before:400,after:120,border:true});
-  const h2=(text)=>para(run(text,{bold:true,size:28,color:'1a0d2e',font:'Arial'}),
-    {before:280,after:100});
-  const h3=(text,color='2c2c3e')=>para(run(text,{bold:true,size:24,color,font:'Arial'}),
-    {before:200,after:80});
-
-  const body=(text)=>para(run(text,{size:22,color:'2c2c3e',font:'Arial'}),
-    {align:'both',before:60,after:120});
-
-  const spacer=()=>para('',{before:0,after:120});
-
-  // Table cell
-  const tc=(content,opts={})=>`<w:tc>
-    <w:tcPr>
-      ${opts.width?`<w:tcW w:w="${opts.width}" w:type="dxa"/>`:''}
-      ${opts.bg?`<w:shd w:val="clear" w:fill="${opts.bg}" w:color="auto"/>`:''}
-      ${opts.noBorder?`<w:tcBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/></w:tcBorders>`:`<w:tcBorders><w:top w:val="single" w:sz="2" w:color="DDDDDD"/><w:left w:val="single" w:sz="2" w:color="DDDDDD"/><w:bottom w:val="single" w:sz="2" w:color="DDDDDD"/><w:right w:val="single" w:sz="2" w:color="DDDDDD"/></w:tcBorders>`}
-      <w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar>
-      ${opts.vAlign?`<w:vAlign w:val="${opts.vAlign}"/>`:''}
-    </w:tcPr>
-    ${Array.isArray(content)?content.join(''):content}
-  </w:tc>`;
-
-  const tr=(...cells)=>`<w:tr>${cells.join('')}</w:tr>`;
-
-  const tbl=(rows,widths)=>{
-    const total=widths.reduce((a,b)=>a+b,0);
-    const grid=widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('');
-    return '<w:tbl><w:tblPr>'
-      +'<w:tblW w:w="'+total+'" w:type="dxa"/>'
-      +'<w:tblLayout w:type="fixed"/>'
-      +'<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar>'
-      +'</w:tblPr><w:tblGrid>'+grid+'</w:tblGrid>'
-      +rows.join('')
-      +'</w:tbl>';
-  };
-
-  // ── Prose content ────────────────────────────────────────────────────────────
-  const execParas=[
-    `This report presents the findings of a security configuration audit conducted on ${now} for the ${p.name} platform. A total of ${data.length} security modules were examined, ${realData.length} of which contained real imported data. The audit identified ${allFindings.length} findings across all modules, comprising ${crit.length} critical issues, ${warn.length} warnings, and ${info.length} informational observations.`,
-    `The overall security posture of the ${p.name} platform is assessed as ${posture}, with an average module health score of ${avgScore} out of 100. ${weakest.length?`The modules requiring the most attention are ${weakest.map(d=>d.label).join(', ')}, each scoring below the recommended threshold of 80. `:''}`,
-    crit.length>0?`Of particular concern are ${crit.length} critical finding${crit.length>1?'s':''} that require immediate remediation. These include: ${crit.slice(0,3).map(f=>f.issue.name).join(', ')}. Until resolved, the organisation faces elevated risk including unauthorised access, data exfiltration, and policy bypass.`:`No critical findings were identified. However, the ${warn.length} warning-level findings should be addressed to maintain a strong security posture.`
-  ];
-
-  const keyRiskParas=[];
-  const critByMod={};
-  crit.forEach(f=>{if(!critByMod[f.module])critByMod[f.module]=[];critByMod[f.module].push(f);});
-  const topMods=Object.entries(critByMod).sort((a,b)=>b[1].length-a[1].length).slice(0,3);
-  if(topMods.length) keyRiskParas.push(`The highest concentration of critical findings is in the ${topMods.map(([m,fs])=>`${m} module (${fs.length} critical)`).join(', ')}. These modules represent the most significant attack surface and should be prioritised for immediate remediation.`);
-  const noRem=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('no remediation'));
-  if(noRem.length) keyRiskParas.push(`A systemic risk is the presence of ${noRem.length} active rule${noRem.length>1?'s':''} with no automated remediation configured. These rules detect threats but rely entirely on manual intervention, increasing the window of exposure.`);
-  const testR=allFindings.filter(f=>f.issue.name&&/test|poc|staging/i.test(f.issue.name));
-  if(testR.length) keyRiskParas.push(`${testR.length} test or proof-of-concept rule${testR.length>1?'s are':' is'} active in production, potentially creating coverage gaps or generating noise that masks real threats.`);
-  if(!keyRiskParas.length) keyRiskParas.push(`While no critical risks were identified, the ${warn.length} warning-level findings represent areas where controls could be strengthened.`);
-
-  const allRecs=[];
-  const noRemCrit=crit.filter(f=>f.issue.rec&&f.issue.rec.toLowerCase().includes('remediation'));
-  if(noRemCrit.length) allRecs.push({priority:'Immediate',color:'c62828',title:'Configure Automated Remediation for Critical Rules',detail:`${noRemCrit.length} critical-severity rule${noRemCrit.length>1?'s are':' is'} active without automated remediation. Configure responses such as session revocation or account suspension to reduce response time and limit damage.`});
-  const silentAll=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('silent'));
-  if(silentAll.length) allRecs.push({priority:'Immediate',color:'c62828',title:'Enable Notifications on High-Severity Rules',detail:`${silentAll.length} rule${silentAll.length>1?'s':''} fire silently with no notification templates. Add platform notifications to all high and critical severity rules to ensure real-time alerting.`});
-  const testInProd=allFindings.filter(f=>f.issue.key==='testInProd'||f.issue.key==='testRules');
-  if(testInProd.length) allRecs.push({priority:'Short-term',color:'e65100',title:'Remove or Formalise Test Rules in Production',detail:`${testInProd.length} test or PoC rule${testInProd.length>1?'s are':' is'} active in production. Review each and rename, disable, or delete as appropriate.`});
-  const inactive=allFindings.filter(f=>f.issue.key==='inactive');
-  if(inactive.length) allRecs.push({priority:'Short-term',color:'e65100',title:'Review and Clean Up Inactive Rules',detail:`${inactive.length} rule${inactive.length>1?'s are':' is'} inactive. Review to confirm intentional or remove to reduce clutter.`});
-  allRecs.push({priority:'Long-term',color:'1565c0',title:'Establish a Quarterly Security Rule Review Cycle',detail:'Implement a structured quarterly review of all security rules covering effectiveness, threat alignment, remediation appropriateness, and removal of obsolete rules.'});
-  if(demoData.length) allRecs.push({priority:'Long-term',color:'1565c0',title:`Import Real Data for ${demoData.length} Demo Module${demoData.length>1?'s':''}`,detail:`${demoData.map(d=>d.label).join(', ')} ${demoData.length>1?'are':'is'} showing demo data. Export and import real configuration data to make findings actionable.`});
-
-  const conclusion=`The ${p.name} platform security audit identified ${allFindings.length} finding${allFindings.length!==1?'s':''} across ${data.length} modules, with an average health score of ${avgScore}/100. ${crit.length>0?`The ${crit.length} critical finding${crit.length>1?'s':''} should be addressed as an immediate priority.`:`The absence of critical findings reflects well-configured platform security.`} Implementing the ${allRecs.filter(r=>r.priority==='Immediate').length} immediate recommendation${allRecs.filter(r=>r.priority==='Immediate').length!==1?'s':''} in this report will move the platform toward a target health score of 85 or above across all modules.`;
-
-  // ── Build summary table ──────────────────────────────────────────────────────
-  const summTbl=tbl([
-    tr(
-      ...[{l:'Critical',v:crit.length,c:'c62828'},{l:'Warnings',v:warn.length,c:'e65100'},
-          {l:'Avg Score',v:`${avgScore}/100`,c:avgScore>=80?'2e7d32':avgScore>=60?'e65100':'c62828'},
-          {l:'Modules',v:data.length,c:'1565c0'}].map(({l,v,c})=>tc([
-        para(run(String(v),{bold:true,size:44,color:c,font:'Arial'}),{align:'center',before:80,after:40}),
-        para(run(l,{size:18,color:'888888',font:'Arial'}),{align:'center',before:0,after:80}),
-      ],{width:2340,bg:'f5f4f9',noBorder:true}))
-    )
-  ],[2340,2340,2340,2340]);
-
-  // ── Module table ─────────────────────────────────────────────────────────────
-  const modHdrRow=tr(
-    ...['Module','Data','Score','Critical','Warnings','Findings'].map((h,i)=>tc(
-      para(run(h,{bold:true,size:20,color:'FFFFFF',font:'Arial'})),
-      {width:[2880,1200,900,1080,1200,1200][i],bg:'1a0d2e'}
-    ))
-  );
-  const modRows=data.filter(d=>d.result).map(({label,result,isDemo},i)=>{
-    const score=result.score??0;
-    const sc=score>=80?'2e7d32':score>=60?'e65100':'c62828';
-    const issues=Object.values(result.issues||{}).flat();
-    const mc=issues.filter(x=>x.sev==='critical').length;
-    const mw=issues.filter(x=>x.sev==='warning').length;
-    const bg=i%2===0?'f5f4f9':'FFFFFF';
-    return tr(
-      tc(para(run(String(label||''),{bold:true,size:20,color:'1a0d2e',font:'Arial'})),{width:2880,bg}),
-      tc(para(run(isDemo?'Demo':'Real',{size:20,color:isDemo?'e65100':'2e7d32',font:'Arial'})),{width:1200,bg}),
-      tc(para(run(String(score),{bold:true,size:20,color:sc,font:'Arial'})),{width:900,bg}),
-      tc(para(run(String(mc),{bold:mc>0,size:20,color:mc>0?'c62828':'666666',font:'Arial'})),{width:1080,bg}),
-      tc(para(run(String(mw),{bold:mw>0,size:20,color:mw>0?'e65100':'666666',font:'Arial'})),{width:1200,bg}),
-      tc(para(run(String(issues.length),{size:20,color:'2c2c3e',font:'Arial'})),{width:1200,bg}),
-    );
-  });
-  const modTbl=tbl([modHdrRow,...modRows],[2880,1200,900,1080,1200,1200]);
-
-  // ── Recommendations ──────────────────────────────────────────────────────────
-  const recBlocks=allRecs.flatMap(({priority,color,title,detail},idx2)=>{
-    const numCell=tc([
-      para(run(String(idx2+1).padStart(2,'0'),{bold:true,size:32,color:'FFFFFF',font:'Arial'}),{align:'center',before:80,after:40}),
-      para(run(String(priority),{size:18,color:'FFFFFF',font:'Arial'}),{align:'center',before:0,after:80}),
-    ],{width:1440,bg:color,noBorder:true,vAlign:'center'});
-    const txtCell=tc([
-      para(run(String(title||''),{bold:true,size:26,color:'1a0d2e',font:'Arial'}),{before:80,after:80}),
-      para(run(String(detail||''),{size:22,color:'2c2c3e',font:'Arial'}),{align:'both',before:0,after:80}),
-    ],{width:7920,bg:'f5f4f9',noBorder:false});
-    const row=tr(numCell,txtCell);
-    return [tbl([row],[1440,7920]),spacer()];
-  });
-
-  // ── Findings appendix table ──────────────────────────────────────────────────
-  const findHdr=tr(
-    ...['Module','Severity','Finding','Detail','Recommendation'].map((h,i)=>tc(
-      para(run(h,{bold:true,size:18,color:'FFFFFF',font:'Arial'})),
-      {width:[1440,1080,2160,2520,2160][i],bg:'1a0d2e'}
-    ))
-  );
-  const findRows=allFindings.map(({module,issue},i)=>{
-    const sc=issue.sev==='critical'?'c62828':issue.sev==='warning'?'e65100':'1565c0';
-    const bg=i%2===0?'f5f4f9':'FFFFFF';
-    return tr(
-      tc(para(run(String(module||''),{size:18,color:'2c2c3e',font:'Arial'})),{width:1440,bg}),
-      tc(para(run((issue.sev||'').toUpperCase(),{bold:true,size:18,color:sc,font:'Arial'})),{width:1080,bg}),
-      tc(para(run(String(issue.name||''),{bold:true,size:18,color:'1a0d2e',font:'Arial'})),{width:2160,bg}),
-      tc(para(run(String(issue.detail||''),{size:18,color:'2c2c3e',font:'Arial'})),{width:2520,bg}),
-      tc(para(run(String(issue.rec||''),{size:18,color:'2e7d32',font:'Arial'})),{width:2160,bg}),
-    );
-  });
-  const findTbl=tbl([findHdr,...findRows],[1440,1080,2160,2520,2160]);
-
-  // ── Assemble document.xml ────────────────────────────────────────────────────
-  const pageBreak=`<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
-
-  const docXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:o="urn:schemas-microsoft-com:office:office"
-  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-  xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
-  xmlns:v="urn:schemas-microsoft-com:vml"
-  xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
-  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-  xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
-  xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
-  xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
-  xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml"
-  xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
-  mc:Ignorable="w14 wp14">
-<w:body>
-  ${spacer()}
-  ${spacer()}
-  ${para(run(p.name,{bold:true,size:64,color:'1a0d2e',font:'Arial'}),{before:0,after:160})}
-  ${para(run('Security Audit Report',{size:40,color:'5a3a7a',font:'Arial'}),{before:0,after:80})}
-  ${para(run('Comprehensive findings, risk analysis and recommendations',{size:24,color:'888888',font:'Arial'}),{before:0,after:320})}
-  ${para(run(now,{size:22,color:'888888',font:'Arial'}),{before:0,after:80})}
-  ${para(run(`${data.length} modules analysed  ·  ${allFindings.length} findings  ·  Avg score: ${avgScore}/100`,{size:22,color:'888888',font:'Arial'}),{before:0,after:320})}
-  ${summTbl}
-  ${spacer()}
-  ${para(run('CONFIDENTIAL — For authorised internal use only',{size:18,color:'aaaaaa',font:'Arial'}),{before:320,after:0})}
-
-  ${pageBreak}
-
-  ${h1('Executive Summary')}
-  ${spacer()}
-  ${execParas.map(t=>body(t)).join('')}
-
-  ${spacer()}
-  ${h1('Key Risk Areas')}
-  ${spacer()}
-  ${keyRiskParas.map(t=>body(t)).join('')}
-
-  ${spacer()}
-  ${h1('Module Analysis')}
-  ${spacer()}
-  ${modTbl}
-
-  ${spacer()}
-  ${h1('Recommendations')}
-  ${spacer()}
-  ${recBlocks.join('')}
-
-  ${spacer()}
-  ${h1('Conclusion')}
-  ${spacer()}
-  ${body(conclusion)}
-
-  ${pageBreak}
-
-  ${h1('Appendix: All Findings')}
-  ${spacer()}
-  ${findTbl}
-
-  ${spacer()}
-  ${para(run(`Security Platform Auditor  ·  ${p.name}  ·  ${now}  ·  CONFIDENTIAL`,{size:18,color:'aaaaaa',font:'Arial'}),{align:'center',before:320,after:0})}
-
-  <w:sectPr>
-    <w:pgSz w:w="12240" w:h="15840"/>
-    <w:pgMar w:top="1440" w:right="1260" w:bottom="1440" w:left="1260" w:header="720" w:footer="720" w:gutter="0"/>
-  </w:sectPr>
-</w:body>
-</w:document>`;
-
-  const relsXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>`;
-
-  const stylesXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:docDefaults>
-    <w:rPrDefault><w:rPr>
-      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
-      <w:sz w:val="22"/><w:szCs w:val="22"/>
-    </w:rPr></w:rPrDefault>
-  </w:docDefaults>
-</w:styles>`;
-
-  const appXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
-  <Application>Security Platform Auditor</Application>
-</Properties>`;
-
-  const contentTypes=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
-</Types>`;
-
-  const rootRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
-  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-</Relationships>`;
-
-  const now2=new Date().toISOString().replace(/\.\d+Z$/,'Z');
-  const coreXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
-  xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
-  <dc:title>${esc(p.name)} Security Audit Report</dc:title>
-  <dc:creator>Security Platform Auditor</dc:creator>
-  <dcterms:created xsi:type="dcterms:W3CDTF" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${now2}</dcterms:created>
-</cp:coreProperties>`;
-
-  try {
-    const zip=new JSZip();
-    zip.file('[Content_Types].xml', contentTypes);
-    zip.file('_rels/.rels', rootRels);
-    zip.file('word/document.xml', docXml);
-    zip.file('word/styles.xml', stylesXml);
-    zip.file('word/_rels/document.xml.rels', relsXml);
-    zip.file('docProps/app.xml', appXml);
-    zip.file('docProps/core.xml', coreXml);
-
-    const blob=await zip.generateAsync({
-      type:'blob',
-      mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      compression:'DEFLATE',
-      compressionOptions:{level:6},
-    });
-
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=`${pid}-written-report-${new Date().toISOString().slice(0,10)}.docx`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-  } catch(err){
-    console.error('Word report error:',err);
-    alert('Word export error: '+err.message);
-  }
-}
-</script>
-<script>
-
 // ═══════════════════════════════════════════════════════════════
 // WRITTEN REPORT — AI-generated narrative PDF
 // ═══════════════════════════════════════════════════════════════
@@ -1041,6 +684,325 @@ function exportWrittenReport(){
     alert('PDF error: '+err.message);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// WORD DOCUMENT EXPORT
+// ═══════════════════════════════════════════════════════════════
+async function exportWordReport(){
+  document.getElementById('export-menu').style.display='none';
+  if(!window.JSZip){ alert('ZIP library not loaded. Please refresh and try again.'); return; }
+
+  const pid=currentPlatform;
+  const p=PLATFORMS[pid];
+  const data=_getExportData(pid);
+  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  // Collect findings
+  const allFindings=[];
+  data.forEach(({label,result,isDemo})=>{
+    if(!result)return;
+    Object.entries(result.issues||{}).forEach(([key,issues])=>{
+      issues.forEach(issue=>allFindings.push({module:label,isDemo,issue,key}));
+    });
+  });
+  allFindings.sort((a,b)=>({critical:0,warning:1,info:2}[a.issue.sev]??3)-({critical:0,warning:1,info:2}[b.issue.sev]??3));
+
+  const crit=allFindings.filter(f=>f.issue.sev==='critical');
+  const warn=allFindings.filter(f=>f.issue.sev==='warning');
+  const info=allFindings.filter(f=>f.issue.sev==='info');
+  const scores=data.map(d=>d.result?.score??0);
+  const avgScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+  const weakest=data.filter(d=>d.result).sort((a,b)=>(a.result.score??0)-(b.result.score??0)).slice(0,3);
+  const demoData=data.filter(d=>d.isDemo);
+  const realData=data.filter(d=>!d.isDemo);
+  const posture=avgScore>=80?'strong':avgScore>=60?'moderate':'concerning';
+
+  // XML escape
+  const x=s=>String(s==null?'':s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&apos;');
+
+  // Build a run of text
+  const R=(text,bold,size,color,italic)=>{
+    const rpr=[
+      bold?'<w:b/>':'',
+      italic?'<w:i/>':'',
+      size?'<w:sz w:val="'+size+'"/><w:szCs w:val="'+size+'"/>':'',
+      color?'<w:color w:val="'+color+'"/>':'',
+      '<w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>',
+    ].join('');
+    return '<w:r><w:rPr>'+rpr+'</w:rPr><w:t xml:space="preserve">'+x(text)+'</w:t></w:r>';
+  };
+
+  // Build a paragraph
+  const P=(runs,before,after,align,shade,borderBottom)=>{
+    const ppr=[
+      align?'<w:jc w:val="'+align+'"/>':'',
+      (before!=null||after!=null)?'<w:spacing w:before="'+(before||0)+'" w:after="'+(after!=null?after:160)+'"/>':'',
+      shade?'<w:shd w:val="clear" w:fill="'+shade+'" w:color="auto"/>':'',
+      borderBottom?'<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="4" w:color="e91e8c"/></w:pBdr>':'',
+    ].join('');
+    return '<w:p>'+(ppr?'<w:pPr>'+ppr+'</w:pPr>':'')+(Array.isArray(runs)?runs.join(''):runs)+'</w:p>';
+  };
+
+  const SP=()=>P('',0,120);
+  const PB='<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+  const H1=t=>P(R(t,true,36,'1a0d2e'),400,120,null,null,true);
+  const H2=t=>P(R(t,true,28,'1a0d2e'),280,100);
+  const BODY=t=>P(R(t,false,22,'2c2c3e'),60,120,'both');
+
+  // Table cell
+  const TC=(paras,width,bg,noBorder)=>{
+    const bdr=noBorder
+      ?'<w:tcBorders><w:top w:val="none" w:sz="0" w:color="FFFFFF"/><w:left w:val="none" w:sz="0" w:color="FFFFFF"/><w:bottom w:val="none" w:sz="0" w:color="FFFFFF"/><w:right w:val="none" w:sz="0" w:color="FFFFFF"/></w:tcBorders>'
+      :'<w:tcBorders><w:top w:val="single" w:sz="2" w:color="DDDDDD"/><w:left w:val="single" w:sz="2" w:color="DDDDDD"/><w:bottom w:val="single" w:sz="2" w:color="DDDDDD"/><w:right w:val="single" w:sz="2" w:color="DDDDDD"/></w:tcBorders>';
+    const bgXml=bg?'<w:shd w:val="clear" w:fill="'+bg+'" w:color="auto"/>':'';
+    const content=Array.isArray(paras)?paras.join(''):paras;
+    return '<w:tc><w:tcPr>'
+      +'<w:tcW w:w="'+width+'" w:type="dxa"/>'
+      +bdr+bgXml
+      +'<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar>'
+      +'</w:tcPr>'+content+'</w:tc>';
+  };
+
+  // Table row
+  const TR=(...cells)=>'<w:tr>'+cells.join('')+'</w:tr>';
+
+  // Table
+  const TBL=(rows,widths)=>{
+    const total=widths.reduce((a,b)=>a+b,0);
+    const grid=widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('');
+    return '<w:tbl>'
+      +'<w:tblPr>'
+      +'<w:tblStyle w:val="TableGrid"/>'
+      +'<w:tblW w:w="'+total+'" w:type="dxa"/>'
+      +'<w:tblLayout w:type="fixed"/>'
+      +'<w:tblLook w:val="04A0"/>'
+      +'</w:tblPr>'
+      +'<w:tblGrid>'+grid+'</w:tblGrid>'
+      +rows.join('')
+      +'</w:tbl>';
+  };
+
+  // Build prose
+  const execParas=[
+    'This report presents the findings of a security configuration audit conducted on '+now+' for the '+p.name+' platform. A total of '+data.length+' security modules were examined, '+realData.length+' of which contained real imported data. The audit identified '+allFindings.length+' findings across all modules, comprising '+crit.length+' critical issues, '+warn.length+' warnings, and '+info.length+' informational observations.',
+    'The overall security posture of the '+p.name+' platform is assessed as '+posture+', with an average module health score of '+avgScore+' out of 100. '+(weakest.length?'The modules requiring the most attention are '+weakest.map(d=>d.label).join(', ')+', each scoring below the recommended threshold of 80.':''),
+    crit.length>0?'Of particular concern are '+crit.length+' critical finding'+(crit.length>1?'s':'')+' that require immediate remediation. These include: '+crit.slice(0,3).map(f=>f.issue.name).join(', ')+'. Until resolved, the organisation faces elevated risk of unauthorised access, data exfiltration, and policy bypass.':'No critical findings were identified. However, the '+warn.length+' warning-level findings should still be addressed to maintain a strong security posture.',
+  ];
+
+  const keyRiskParas=[];
+  const critByMod={};
+  crit.forEach(f=>{ if(!critByMod[f.module])critByMod[f.module]=[]; critByMod[f.module].push(f); });
+  const topMods=Object.entries(critByMod).sort((a,b)=>b[1].length-a[1].length).slice(0,3);
+  if(topMods.length) keyRiskParas.push('The highest concentration of critical findings is in the '+topMods.map(([m,fs])=>m+' module ('+fs.length+' critical)').join(', ')+'. These modules represent the most significant attack surface and should be prioritised for immediate remediation.');
+  const noRemCount=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('no remediation')).length;
+  if(noRemCount) keyRiskParas.push('A systemic risk is the presence of '+noRemCount+' active rule'+(noRemCount>1?'s':'')+' with no automated remediation configured. These rules detect threats but rely entirely on manual intervention, increasing the window of exposure.');
+  const testCount=allFindings.filter(f=>f.issue.name&&/test|poc|staging/i.test(f.issue.name)).length;
+  if(testCount) keyRiskParas.push(testCount+' test or proof-of-concept rule'+(testCount>1?'s are':' is')+' active in production, potentially creating coverage gaps or generating noise that masks real threats.');
+  if(!keyRiskParas.length) keyRiskParas.push('While no critical risks were identified, the '+warn.length+' warning-level findings represent areas where controls could be strengthened.');
+
+  const allRecs=[];
+  const noRemCrit=crit.filter(f=>f.issue.rec&&f.issue.rec.toLowerCase().includes('remediation')).length;
+  if(noRemCrit) allRecs.push({p:'Immediate',c:'c62828',t:'Configure Automated Remediation for Critical Rules',d:noRemCrit+' critical-severity rule'+(noRemCrit>1?'s are':' is')+' active without automated remediation. Configure responses such as session revocation or account suspension to reduce response time and limit damage during active incidents.'});
+  const silentCount=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('silent')).length;
+  if(silentCount) allRecs.push({p:'Immediate',c:'c62828',t:'Enable Notifications on High-Severity Rules',d:silentCount+' rule'+(silentCount>1?'s':'')+' fire silently with no notification templates. Add platform notifications to all high and critical severity rules to ensure real-time alerting.'});
+  const testProdCount=allFindings.filter(f=>f.issue.key==='testInProd'||f.issue.key==='testRules').length;
+  if(testProdCount) allRecs.push({p:'Short-term',c:'e65100',t:'Remove or Formalise Test Rules in Production',d:testProdCount+' test or PoC rule'+(testProdCount>1?'s are':' is')+' active in production. Review each and rename to production conventions, disable, or delete as appropriate.'});
+  const inactiveCount=allFindings.filter(f=>f.issue.key==='inactive').length;
+  if(inactiveCount) allRecs.push({p:'Short-term',c:'e65100',t:'Review and Clean Up Inactive Rules',d:inactiveCount+' rule'+(inactiveCount>1?'s are':' is')+' currently inactive. Review to confirm intentional or remove to reduce configuration complexity.'});
+  allRecs.push({p:'Long-term',c:'1565c0',t:'Establish a Quarterly Security Rule Review Cycle',d:'Implement a structured quarterly review of all security rules covering effectiveness, threat alignment, remediation appropriateness, and removal of obsolete rules.'});
+  if(demoData.length) allRecs.push({p:'Long-term',c:'1565c0',t:'Import Real Data for '+demoData.length+' Demo Module'+(demoData.length>1?'s':''),d:demoData.map(d=>d.label).join(', ')+(demoData.length>1?' are':' is')+' showing demo data. Export and import real configuration data to make findings fully actionable.'});
+
+  const conclusion='The '+p.name+' platform security audit identified '+allFindings.length+' finding'+(allFindings.length!==1?'s':'')+' across '+data.length+' modules, with an average health score of '+avgScore+'/100. '+(crit.length>0?'The '+crit.length+' critical finding'+(crit.length>1?'s':'')+' should be addressed as an immediate priority.':'The absence of critical findings reflects well-configured platform security.')+' Implementing the '+allRecs.filter(r=>r.p==='Immediate').length+' immediate recommendation'+(allRecs.filter(r=>r.p==='Immediate').length!==1?'s':'')+' in this report will move the platform toward a target health score of 85 or above.';
+
+  // Build module table
+  const modHdr=TR(
+    TC(P(R('Module',true,20,'FFFFFF'),80,80),2880,'1a0d2e',true),
+    TC(P(R('Data',true,20,'FFFFFF'),80,80),1200,'1a0d2e',true),
+    TC(P(R('Score',true,20,'FFFFFF'),80,80),900,'1a0d2e',true),
+    TC(P(R('Critical',true,20,'FFFFFF'),80,80),1080,'1a0d2e',true),
+    TC(P(R('Warnings',true,20,'FFFFFF'),80,80),1200,'1a0d2e',true),
+    TC(P(R('Findings',true,20,'FFFFFF'),80,80),1080,'1a0d2e',true),
+  );
+  const modRows=data.filter(d=>d.result).map(({label,result,isDemo},i)=>{
+    const score=result.score??0;
+    const sc=score>=80?'2e7d32':score>=60?'e65100':'c62828';
+    const issues=Object.values(result.issues||{}).flat();
+    const mc=issues.filter(x=>x.sev==='critical').length;
+    const mw=issues.filter(x=>x.sev==='warning').length;
+    const bg=i%2===0?'f5f4f9':'FFFFFF';
+    return TR(
+      TC(P(R(label,true,20,'1a0d2e'),60,60),2880,bg,false),
+      TC(P(R(isDemo?'Demo':'Real',false,20,isDemo?'e65100':'2e7d32'),60,60),1200,bg,false),
+      TC(P(R(String(score),true,20,sc),60,60),900,bg,false),
+      TC(P(R(String(mc),mc>0,20,mc>0?'c62828':'666666'),60,60),1080,bg,false),
+      TC(P(R(String(mw),mw>0,20,mw>0?'e65100':'666666'),60,60),1200,bg,false),
+      TC(P(R(String(issues.length),false,20,'2c2c3e'),60,60),1080,bg,false),
+    );
+  });
+
+  // Build recommendations
+  const recRows=allRecs.map(({p:priority,c:color,t:title,d:detail},i)=>
+    TBL([TR(
+      TC([
+        P(R(String(i+1).padStart(2,'0'),true,32,'FFFFFF'),80,40,'center'),
+        P(R(priority,false,18,'FFFFFF'),0,80,'center'),
+      ],1440,color,true),
+      TC([
+        P(R(title,true,26,'1a0d2e'),80,60),
+        P(R(detail,false,22,'2c2c3e'),0,80,'both'),
+      ],7920,'f5f4f9',false),
+    )],[1440,7920])
+  ).join(SP());
+
+  // Build findings table
+  const findHdr=TR(
+    TC(P(R('Module',true,18,'FFFFFF'),60,60),1620,'1a0d2e',true),
+    TC(P(R('Severity',true,18,'FFFFFF'),60,60),1080,'1a0d2e',true),
+    TC(P(R('Finding',true,18,'FFFFFF'),60,60),2160,'1a0d2e',true),
+    TC(P(R('Detail',true,18,'FFFFFF'),60,60),2520,'1a0d2e',true),
+    TC(P(R('Recommendation',true,18,'FFFFFF'),60,60),1980,'1a0d2e',true),
+  );
+  const findRows=allFindings.map(({module,issue},i)=>{
+    const sc=issue.sev==='critical'?'c62828':issue.sev==='warning'?'e65100':'1565c0';
+    const bg=i%2===0?'f5f4f9':'FFFFFF';
+    return TR(
+      TC(P(R(module||'',false,18,'2c2c3e'),40,40),1620,bg,false),
+      TC(P(R((issue.sev||'').toUpperCase(),true,18,sc),40,40),1080,bg,false),
+      TC(P(R(issue.name||'',true,18,'1a0d2e'),40,40),2160,bg,false),
+      TC(P(R(issue.detail||'',false,18,'2c2c3e'),40,40),2520,bg,false),
+      TC(P(R(issue.rec||'',false,18,'2e7d32'),40,40),1980,bg,false),
+    );
+  });
+
+  // Assemble document.xml
+  const body=[
+    // Title page
+    SP(),SP(),SP(),
+    P(R(p.name,true,64,'1a0d2e'),0,160),
+    P(R('Security Audit Report',false,40,'5a3a7a'),0,80),
+    P(R('Comprehensive findings, risk analysis and recommendations',false,24,'888888'),0,320),
+    P(R(now,false,22,'888888'),0,80),
+    P(R(data.length+' modules  ·  '+allFindings.length+' findings  ·  Avg score: '+avgScore+'/100',false,22,'888888'),0,320),
+    // Summary stats row
+    TBL([TR(
+      ...[{l:'Critical',v:crit.length,c:'c62828'},{l:'Warnings',v:warn.length,c:'e65100'},
+          {l:'Avg Score',v:avgScore+'/100',c:avgScore>=80?'2e7d32':avgScore>=60?'e65100':'c62828'},
+          {l:'Modules',v:data.length,c:'1565c0'}].map(({l,v,c})=>TC([
+        P(R(String(v),true,44,c),80,40,'center'),
+        P(R(l,false,18,'888888'),0,80,'center'),
+      ],2340,'f5f4f9',true))
+    )],[2340,2340,2340,2340]),
+    SP(),
+    P(R('CONFIDENTIAL — For authorised internal use only',false,18,'aaaaaa'),320,0,'center'),
+    PB,
+    // Executive Summary
+    H1('Executive Summary'),SP(),
+    ...execParas.map(t=>BODY(t)),
+    SP(),
+    // Key Risks
+    H1('Key Risk Areas'),SP(),
+    ...keyRiskParas.map(t=>BODY(t)),
+    SP(),
+    // Module Analysis
+    H1('Module Analysis'),SP(),
+    TBL([modHdr,...modRows],[2880,1200,900,1080,1200,1080]),
+    SP(),
+    // Recommendations
+    H1('Recommendations'),SP(),
+    recRows,
+    SP(),
+    // Conclusion
+    H1('Conclusion'),SP(),
+    BODY(conclusion),
+    PB,
+    // Appendix
+    H1('Appendix: All Findings'),SP(),
+    TBL([findHdr,...findRows],[1620,1080,2160,2520,1980]),
+    SP(),
+    P(R('Security Platform Auditor  ·  '+p.name+'  ·  '+now+'  ·  CONFIDENTIAL',false,18,'aaaaaa'),320,0,'center'),
+  ].join('');
+
+  const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    +' xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    +'<w:body>'+body
+    +'<w:sectPr>'
+    +'<w:pgSz w:w="12240" w:h="15840"/>'
+    +'<w:pgMar w:top="1440" w:right="1260" w:bottom="1440" w:left="1260" w:header="720" w:footer="720" w:gutter="0"/>'
+    +'</w:sectPr>'
+    +'</w:body></w:document>';
+
+  const relsXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    +'</Relationships>';
+
+  const stylesXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    +'<w:docDefaults><w:rPrDefault><w:rPr>'
+    +'<w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>'
+    +'<w:sz w:val="22"/><w:szCs w:val="22"/>'
+    +'</w:rPr></w:rPrDefault></w:docDefaults>'
+    +'<w:style w:type="table" w:styleId="TableGrid">'
+    +'<w:name w:val="Table Grid"/>'
+    +'<w:tblPr><w:tblBorders>'
+    +'<w:top w:val="single" w:sz="4" w:color="DDDDDD"/>'
+    +'<w:left w:val="single" w:sz="4" w:color="DDDDDD"/>'
+    +'<w:bottom w:val="single" w:sz="4" w:color="DDDDDD"/>'
+    +'<w:right w:val="single" w:sz="4" w:color="DDDDDD"/>'
+    +'<w:insideH w:val="single" w:sz="4" w:color="DDDDDD"/>'
+    +'<w:insideV w:val="single" w:sz="4" w:color="DDDDDD"/>'
+    +'</w:tblBorders></w:tblPr>'
+    +'</w:style>'
+    +'</w:styles>';
+
+  const contentTypes='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    +'<Default Extension="xml" ContentType="application/xml"/>'
+    +'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+    +'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+    +'</Types>';
+
+  const rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+    +'</Relationships>';
+
+  try {
+    const zip=new JSZip();
+    zip.file('[Content_Types].xml',contentTypes);
+    zip.file('_rels/.rels',rootRels);
+    zip.file('word/document.xml',docXml);
+    zip.file('word/styles.xml',stylesXml);
+    zip.file('word/_rels/document.xml.rels',relsXml);
+
+    const blob=await zip.generateAsync({
+      type:'blob',
+      mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      compression:'DEFLATE',
+      compressionOptions:{level:6},
+    });
+
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=pid+'-written-report-'+new Date().toISOString().slice(0,10)+'.docx';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(err){
+    console.error('Word error:',err);
+    alert('Word export error: '+err.message);
+  }
+}
+
+
+
 </script>
 <script>
 // ── Recommendations PDF (written report) ─────────────────────────────────────
