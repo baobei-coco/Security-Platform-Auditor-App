@@ -272,11 +272,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // ═══════════════════════════════════════════════════════════════
 // WRITTEN REPORT — AI-generated narrative PDF
 // ═══════════════════════════════════════════════════════════════
-async function exportWrittenReport(){
+function exportWrittenReport(){
   document.getElementById('export-menu').style.display='none';
 
   const jsPDFLib=window.jspdf||window.jsPDF;
-  if(!jsPDFLib){alert('PDF library not loaded yet.');return;}
+  if(!jsPDFLib){alert('PDF library not loaded yet. Try again in a moment.');return;}
   const {jsPDF}=jsPDFLib;
 
   const pid=currentPlatform;
@@ -284,346 +284,404 @@ async function exportWrittenReport(){
   const data=_getExportData(pid);
   const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
-  // Collect all findings
+  // ── Collect & sort findings ─────────────────────────────────────────────
   const allFindings=[];
   data.forEach(({label,result,isDemo})=>{
     if(!result)return;
     Object.entries(result.issues||{}).forEach(([key,issues])=>{
-      issues.forEach(issue=>allFindings.push({module:label,isDemo,issue}));
+      issues.forEach(issue=>allFindings.push({module:label,isDemo,issue,key}));
     });
   });
   allFindings.sort((a,b)=>({critical:0,warning:1,info:2}[a.issue.sev]??3)-({critical:0,warning:1,info:2}[b.issue.sev]??3));
 
-  const critCount=allFindings.filter(f=>f.issue.sev==='critical').length;
-  const warnCount=allFindings.filter(f=>f.issue.sev==='warning').length;
+  const crit=allFindings.filter(f=>f.issue.sev==='critical');
+  const warn=allFindings.filter(f=>f.issue.sev==='warning');
+  const info=allFindings.filter(f=>f.issue.sev==='info');
   const scores=data.map(d=>d.result?.score??0);
   const avgScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+  const weakest=data.filter(d=>d.result).sort((a,b)=>(a.result.score??0)-(b.result.score??0)).slice(0,3);
+  const strongest=data.filter(d=>d.result).sort((a,b)=>(b.result.score??0)-(a.result.score??0)).slice(0,2);
+  const realData=data.filter(d=>!d.isDemo);
+  const demoData=data.filter(d=>d.isDemo);
 
-  // Show loading overlay
-  const overlay=document.createElement('div');
-  overlay.id='report-overlay';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(10,5,20,.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
-  overlay.innerHTML=`
-    <div style="width:48px;height:48px;border:3px solid #4a3a6a;border-top-color:#e91e8c;border-radius:50%;animation:spin 1s linear infinite;"></div>
-    <div style="color:#c9b8e8;font-size:15px;font-weight:600;">Generating written report...</div>
-    <div style="color:#9b7ec8;font-size:12px;" id="report-status">Analysing findings with AI</div>
-  `;
-  if(!document.getElementById('spin-style')){
-    const st=document.createElement('style');
-    st.id='spin-style';
-    st.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
-    document.head.appendChild(st);
-  }
-  document.body.appendChild(overlay);
-  const setStatus=msg=>{ const el=document.getElementById('report-status'); if(el)el.textContent=msg; };
+  // ── Generate prose sections ──────────────────────────────────────────────
+  const posture = avgScore>=80?'strong':avgScore>=60?'moderate':'concerning';
+  const urgency = crit.length>5?'immediate':'near-term';
 
-  try {
-    // Build findings summary for the AI prompt
-    const moduleScores=data.map(d=>`${d.label}: ${d.result?.score??0}/100 (${Object.values(d.result?.issues||{}).flat().length} findings)`).join('\n');
-    const criticalFindings=allFindings.filter(f=>f.issue.sev==='critical').slice(0,15)
-      .map(f=>`[${f.module}] ${f.issue.name}: ${f.issue.detail} | Recommendation: ${f.issue.rec||'None'}`).join('\n');
-    const warningFindings=allFindings.filter(f=>f.issue.sev==='warning').slice(0,20)
-      .map(f=>`[${f.module}] ${f.issue.name}: ${f.issue.detail} | Recommendation: ${f.issue.rec||'None'}`).join('\n');
+  const execSummary=[
+    `This report presents the findings of a security configuration audit conducted on ${now} for the ${p.name} platform. `+
+    `A total of ${data.length} security modules were examined, ${realData.length} of which contained real imported data. `+
+    `The audit identified ${allFindings.length} findings across all modules, comprising ${crit.length} critical issues, `+
+    `${warn.length} warnings, and ${info.length} informational observations.`,
 
-    const prompt=`You are a senior cybersecurity analyst writing a formal security audit report for ${p.name}.
+    `The overall security posture of the ${p.name} platform is assessed as ${posture}, with an average module health score of ${avgScore} out of 100. `+
+    (weakest.length?`The modules requiring the most attention are ${weakest.map(d=>d.label).join(', ')}, `+
+    `each scoring below the recommended threshold of 80. `:'')+ 
+    (strongest.length && strongest[0].result.score>=80?`Conversely, ${strongest.map(d=>d.label).join(' and ')} demonstrate strong configuration hygiene.`:''),
 
-Platform: ${p.name}
-Date: ${now}
-Modules analysed: ${data.length}
-Average health score: ${avgScore}/100
-Total findings: ${allFindings.length} (${critCount} critical, ${warnCount} warnings)
+    crit.length>0?
+    `Of particular concern are ${crit.length} critical finding${crit.length>1?'s':''} that require ${urgency} remediation. `+
+    `These include issues such as ${crit.slice(0,3).map(f=>f.issue.name).join(', ')}. `+
+    `Until these are resolved, the organisation faces elevated risk of security incidents including unauthorised access, data exfiltration, and policy bypass.`:
+    `No critical findings were identified during this audit, which reflects well on the security configuration of the platform. `+
+    `However, the ${warn.length} warning-level findings should still be addressed to maintain a strong security posture.`
+  ].join('\n\n');
 
-Module scores:
-${moduleScores}
+  const keyRisks = (() => {
+    const parts=[];
+    const critByModule={};
+    crit.forEach(f=>{if(!critByModule[f.module])critByModule[f.module]=[];critByModule[f.module].push(f);});
+    const topModules=Object.entries(critByModule).sort((a,b)=>b[1].length-a[1].length).slice(0,3);
 
-Critical findings:
-${criticalFindings}
-
-Warning findings:
-${warningFindings}
-
-Write a professional written security audit report with these exact sections. Use formal language suitable for a CISO or security leadership audience. Be specific — reference actual rule names, module names, and finding details from the data above.
-
-Return ONLY valid JSON in this exact format, no markdown, no code blocks:
-{
-  "executiveSummary": "3-4 paragraph executive summary discussing the overall security posture, key risk areas, and urgency of remediation",
-  "keyRisks": "2-3 paragraphs describing the most significant risks identified and their potential business impact",
-  "moduleAnalysis": [
-    {"module": "module name", "analysis": "2-3 sentence analysis of this module's findings and health score"}
-  ],
-  "recommendations": [
-    {"priority": "Immediate", "title": "recommendation title", "detail": "2-3 sentence detailed recommendation with specific actions"},
-    {"priority": "Short-term", "title": "recommendation title", "detail": "2-3 sentence detailed recommendation"},
-    {"priority": "Long-term", "title": "recommendation title", "detail": "2-3 sentence detailed recommendation"}
-  ],
-  "conclusion": "1-2 paragraph conclusion summarising the security posture and path forward"
-}`;
-
-    setStatus('Calling AI to write report...');
-
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:4000,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-
-    if(!response.ok){throw new Error(`API error: ${response.status}`);}
-    const apiData=await response.json();
-    const rawText=apiData.content.find(b=>b.type==='text')?.text||'';
-
-    setStatus('Parsing AI response...');
-
-    // Parse JSON response
-    let report;
-    try{
-      const clean=rawText.replace(/^```json\s*/,'').replace(/```\s*$/,'').trim();
-      report=JSON.parse(clean);
-    }catch(e){
-      throw new Error('Failed to parse AI response: '+e.message);
+    if(topModules.length){
+      parts.push(`The highest concentration of critical findings is in the ${topModules.map(([m,fs])=>`${m} module (${fs.length} critical finding${fs.length>1?'s':''})`).join(', ')}. `+
+        `These modules represent the most significant attack surface and should be prioritised for immediate remediation.`);
     }
 
-    setStatus('Building PDF...');
+    const noRem=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('no remediation'));
+    if(noRem.length){
+      parts.push(`A systemic risk identified across multiple modules is the presence of ${noRem.length} active rule${noRem.length>1?'s':''} with no automated remediation action configured. `+
+        `Rules that detect threats but take no automated action rely entirely on manual analyst intervention, which introduces response delays and increases the window of exposure.`);
+    }
 
-    // ── BUILD PDF ────────────────────────────────────────────────────────────
+    const testRules=allFindings.filter(f=>f.issue.name&&/test|poc|staging/i.test(f.issue.name));
+    if(testRules.length){
+      parts.push(`${testRules.length} test or proof-of-concept rule${testRules.length>1?'s are':' is'} currently active in the production environment. `+
+        `Test rules are often configured with relaxed conditions or missing notifications, and their presence in production can create gaps in coverage or generate noise that masks real threats.`);
+    }
+
+    if(!parts.length){
+      parts.push(`While no critical risks were identified, the ${warn.length} warning-level findings across the platform represent areas where security controls could be strengthened. `+
+        `Addressing these proactively will reduce the likelihood of issues escalating to critical status.`);
+    }
+    return parts.join('\n\n');
+  })();
+
+  // Immediate recommendations from critical findings
+  const immediateRecs=[];
+  const shortTermRecs=[];
+  const longTermRecs=[];
+
+  // Group critical findings by type for recommendations
+  const noRemCrit=crit.filter(f=>f.issue.rec&&f.issue.rec.toLowerCase().includes('remediation'));
+  if(noRemCrit.length){
+    immediateRecs.push({
+      title:'Configure Automated Remediation for Critical Rules',
+      detail:`${noRemCrit.length} critical-severity rule${noRemCrit.length>1?'s are':' is'} active without automated remediation actions. `+
+        `For each affected rule, configure appropriate responses such as session revocation, account suspension, or app blocking. `+
+        `Automated remediation dramatically reduces response time and limits damage during active incidents.`
+    });
+  }
+
+  const silentCrit=crit.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('silent'));
+  const silentWarn=warn.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('silent'));
+  if(silentCrit.length+silentWarn.length>0){
+    immediateRecs.push({
+      title:'Enable Notifications on High-Severity Rules',
+      detail:`${silentCrit.length+silentWarn.length} rule${silentCrit.length+silentWarn.length>1?'s':''} across the platform fire silently with no notification templates configured. `+
+        `Security events detected by these rules will only appear in the incident queue if actively monitored. `+
+        `Add platform notification templates to all high and critical severity rules to ensure real-time alerting.`
+    });
+  }
+
+  const testInProd=allFindings.filter(f=>f.issue.key==='testInProd'||f.issue.key==='testRules');
+  if(testInProd.length){
+    shortTermRecs.push({
+      title:'Remove or Formalise Test Rules in Production',
+      detail:`${testInProd.length} test, PoC, or staging rule${testInProd.length>1?'s are':' is'} currently active in the production environment. `+
+        `Review each rule and either rename it to follow production naming conventions, disable it, or remove it entirely. `+
+        `Test rules in production can introduce unpredictable behaviour and obscure legitimate security events.`
+    });
+  }
+
+  const inactive=allFindings.filter(f=>f.issue.key==='inactive');
+  if(inactive.length){
+    shortTermRecs.push({
+      title:'Review and Clean Up Inactive Rules',
+      detail:`${inactive.length} rule${inactive.length>1?'s are':' is'} currently inactive across the platform. `+
+        `Each inactive rule should be reviewed to determine if it was intentionally disabled or overlooked. `+
+        `Rules that are no longer needed should be deleted to reduce configuration complexity and audit noise.`
+    });
+  }
+
+  const dupPrio=allFindings.filter(f=>f.issue.key==='dupPriority');
+  if(dupPrio.length){
+    shortTermRecs.push({
+      title:'Resolve Duplicate Priority Conflicts',
+      detail:`${dupPrio.length} rule${dupPrio.length>1?'s share':' shares'} priority levels with other rules, creating unpredictable execution ordering. `+
+        `Assign unique priority values to all rules within each module to ensure deterministic processing. `+
+        `Priority conflicts can cause lower-priority rules to override higher-priority ones depending on platform implementation.`
+    });
+  }
+
+  longTermRecs.push({
+    title:'Establish a Regular Security Rule Review Cycle',
+    detail:`Implement a quarterly review process for all security rules across the platform. `+
+      `Each review should assess rule effectiveness, update conditions to reflect new threats, verify remediation actions are still appropriate, `+
+      `and remove obsolete rules. A structured review cycle prevents configuration drift and ensures rules remain aligned with the current threat landscape.`
+  });
+
+  longTermRecs.push({
+    title:'Develop a Security Rule Naming and Tagging Standard',
+    detail:`Establish and enforce a consistent naming convention and tagging taxonomy for all security rules. `+
+      `This should distinguish production rules from test rules, indicate the owning team, and classify rules by threat category. `+
+      `Consistent naming makes auditing faster, reduces the risk of test rules reaching production, and improves incident response efficiency.`
+  });
+
+  if(demoData.length>0){
+    longTermRecs.push({
+      title:`Import Real Data for ${demoData.length} Demo Module${demoData.length>1?'s':''}`,
+      detail:`${demoData.length} module${demoData.length>1?'s are':' is'} currently showing demo data: ${demoData.map(d=>d.label).join(', ')}. `+
+        `Export the relevant configuration data from ${p.name} for each of these modules and import it into the auditor. `+
+        `Audit findings based on real data are significantly more actionable than those based on synthetic demo records.`
+    });
+  }
+
+  const allRecs=[
+    ...immediateRecs.map(r=>({priority:'Immediate',...r})),
+    ...shortTermRecs.map(r=>({priority:'Short-term',...r})),
+    ...longTermRecs.map(r=>({priority:'Long-term',...r})),
+  ];
+
+  if(!allRecs.length){
+    allRecs.push({priority:'Long-term',title:'Maintain Current Security Posture',
+      detail:`The platform is in good health. Continue the current configuration practices and implement a regular review cycle to sustain this posture.`});
+  }
+
+  const conclusion=
+    `The ${p.name} platform security audit has identified ${allFindings.length} finding${allFindings.length!==1?'s':''} across ${data.length} modules, `+
+    `with an average health score of ${avgScore}/100. `+
+    (crit.length>0?
+      `The ${crit.length} critical finding${crit.length>1?'s':''} identified in this report represent the most pressing risks and should be addressed as a priority before other improvements are considered. `+
+      `Resolving these issues will significantly improve the organisation's security posture and reduce exposure to the threats that the ${p.name} platform is designed to detect and prevent.`:
+      `The absence of critical findings indicates a generally well-configured platform. `+
+      `Addressing the ${warn.length} warning-level finding${warn.length!==1?'s':''} identified in this report will further strengthen the security posture.`)+
+    ` Following the recommendations in this report — particularly the ${allRecs.filter(r=>r.priority==='Immediate').length} immediate action${allRecs.filter(r=>r.priority==='Immediate').length!==1?'s':''} — `+
+    `will move the platform toward a target health score of 85 or above across all modules.`;
+
+  try {
+    // ── BUILD PDF ──────────────────────────────────────────────────────────
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const W=210,ml=20,mr=20,cw=W-ml-mr;
     let y=0;
-    const safe=v=>String(v==null?'':v).trim()||' ';
 
     const rgb=hex=>{const h=(hex||'#000000').replace('#','');return[parseInt(h.slice(0,2),16)||0,parseInt(h.slice(2,4),16)||0,parseInt(h.slice(4,6),16)||0];};
     const fill=hex=>{const[r,g,b]=rgb(hex);doc.setFillColor(r,g,b);};
-    const txtColor=hex=>{const[r,g,b]=rgb(hex);doc.setTextColor(r,g,b);};
-    const drawColor=hex=>{const[r,g,b]=rgb(hex);doc.setDrawColor(r,g,b);};
-
-    const PURPLE='#1a0d2e',ACCENT='#e91e8c',LGRAY='#f5f5f7',DGRAY='#333344';
+    const tc=hex=>{const[r,g,b]=rgb(hex);doc.setTextColor(r,g,b);};
+    const dc=hex=>{const[r,g,b]=rgb(hex);doc.setDrawColor(r,g,b);};
+    const safe=v=>String(v==null?'':v).trim()||' ';
+    const PURPLE='#1a0d2e',ACCENT='#e91e8c',LGRAY='#f5f4f9',DGRAY='#2c2c3e';
     let pageNum=0;
 
-    const addPageHeader=()=>{
+    const addHdr=()=>{
       pageNum++;
-      fill(PURPLE); doc.rect(0,0,W,14,'F');
-      fill(ACCENT); doc.rect(0,0,4,14,'F');
-      txtColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-      doc.text(safe(`${p.name} — Security Audit Report`),10,9);
-      txtColor('#9880b8'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.text(safe(now),W-mr,9,{align:'right'});
-      // Page number
-      txtColor('#666'); doc.setFontSize(7);
-      doc.text(safe(`Page ${pageNum}`),W/2,9,{align:'center'});
+      fill(PURPLE);doc.rect(0,0,W,13,'F');
+      fill(ACCENT);doc.rect(0,0,4,13,'F');
+      tc('#ffffff');doc.setFont('helvetica','bold');doc.setFontSize(8);
+      doc.text(safe(`${p.name} — Security Audit Report`),10,8.5);
+      tc('#9880b8');doc.setFont('helvetica','normal');doc.setFontSize(7);
+      doc.text(safe(now),W-mr,8.5,{align:'right'});
+      tc('#777');doc.text(safe(`Page ${pageNum}`),W/2,8.5,{align:'center'});
     };
 
-    const checkY=(need=25)=>{
-      if(y+need>275){doc.addPage();addPageHeader();y=22;}
+    const checkY=(need=25)=>{if(y+need>275){doc.addPage();addHdr();y=22;}};
+
+    const secTitle=(title)=>{
+      checkY(18);y+=3;
+      fill(LGRAY);doc.rect(ml-2,y-5,cw+4,11,'F');
+      fill(ACCENT);doc.rect(ml-2,y-5,3,11,'F');
+      tc(PURPLE);doc.setFont('helvetica','bold');doc.setFontSize(12);
+      doc.text(safe(title),ml+4,y+1.5);
+      y+=11;dc('#ddd');doc.setLineWidth(0.3);doc.line(ml,y,ml+cw,y);y+=5;
     };
 
-    const addSectionTitle=(title)=>{
-      checkY(16);
-      y+=4;
-      fill(LGRAY); doc.rect(ml-2,y-5,cw+4,11,'F');
-      fill(ACCENT); doc.rect(ml-2,y-5,3,11,'F');
-      txtColor(PURPLE); doc.setFont('helvetica','bold'); doc.setFontSize(12);
-      doc.text(safe(title),ml+4,y+1);
-      y+=10;
-      drawColor('#e0d0f0'); doc.setLineWidth(0.3);
-      doc.line(ml,y,ml+cw,y);
-      y+=6;
+    const bodyText=(txt,indent=0,size=9.5)=>{
+      const paras=safe(txt).split('\n\n').filter(p=>p.trim());
+      paras.forEach((para,pi)=>{
+        const lines=doc.splitTextToSize(para.trim(),cw-indent);
+        checkY(lines.length*5.2);
+        tc(DGRAY);doc.setFont('helvetica','normal');doc.setFontSize(size);
+        doc.text(lines,ml+indent,y);
+        y+=lines.length*5.2+(pi<paras.length-1?4:3);
+      });
     };
 
-    const addBodyText=(text,indent=0)=>{
-      const lines=doc.splitTextToSize(safe(text),cw-indent);
-      checkY(lines.length*5);
-      txtColor(DGRAY); doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-      doc.text(lines,ml+indent,y);
-      y+=lines.length*5+3;
-    };
+    // ── COVER ──────────────────────────────────────────────────────────────
+    fill(PURPLE);doc.rect(0,0,W,297,'F');
+    fill(ACCENT);doc.rect(0,0,4,297,'F');
+    fill('#22123c');doc.rect(0,185,W,112,'F');
 
-    // ── COVER PAGE ──────────────────────────────────────────────────────────
-    fill(PURPLE); doc.rect(0,0,W,297,'F');
-    fill(ACCENT); doc.rect(0,0,4,297,'F');
-    fill('#2a1a42'); doc.rect(0,180,W,117,'F');
+    fill(ACCENT);doc.roundedRect(ml,42,11,11,1.5,1.5,'F');
+    tc('#fff');doc.setFont('helvetica','bold');doc.setFontSize(7);
+    doc.text('SPA',ml+5.5,49.5,{align:'center'});
 
-    // Logo area
-    fill(ACCENT); doc.roundedRect(ml,45,12,12,2,2,'F');
-    txtColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-    doc.text('SPA',ml+6,53,{align:'center'});
+    tc('#fff');doc.setFont('helvetica','bold');doc.setFontSize(26);
+    doc.text(safe(p.name),ml,76);
+    tc('#c9b8e8');doc.setFont('helvetica','normal');doc.setFontSize(13);
+    doc.text('Security Audit Report',ml,87);
+    tc('#9880b8');doc.setFontSize(9.5);
+    doc.text('Comprehensive findings, risk analysis and recommendations',ml,97);
+    fill(ACCENT);doc.rect(ml,108,28,1.5,'F');
+    tc('#9880b8');doc.setFontSize(9);
+    doc.text(safe(now),ml,118);
+    doc.text(safe(`${data.length} modules  ·  ${allFindings.length} findings  ·  Avg score: ${avgScore}/100`),ml,126);
 
-    txtColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(28);
-    doc.text(safe(p.name),ml,80);
-
-    txtColor('#c9b8e8'); doc.setFont('helvetica','normal'); doc.setFontSize(14);
-    doc.text('Security Audit Report',ml,92);
-
-    txtColor('#9880b8'); doc.setFont('helvetica','normal'); doc.setFontSize(10);
-    doc.text('Comprehensive findings, risk analysis and recommendations',ml,102);
-
-    // Divider
-    fill(ACCENT); doc.rect(ml,115,30,1.5,'F');
-
-    txtColor('#9880b8'); doc.setFontSize(10);
-    doc.text(safe(now),ml,125);
-    doc.text(safe(`${data.length} modules  ·  ${allFindings.length} findings  ·  Avg score: ${avgScore}/100`),ml,133);
-
-    // Score boxes
-    const sBoxes=[
-      {l:'Critical',v:critCount,c:'#ef5350'},
-      {l:'Warnings',v:warnCount,c:'#ff8f00'},
+    const boxes=[
+      {l:'Critical',v:crit.length,c:'#ef5350'},
+      {l:'Warnings',v:warn.length,c:'#ff8f00'},
       {l:'Avg Score',v:`${avgScore}`,c:avgScore>=80?'#43a047':avgScore>=60?'#ff8f00':'#ef5350'},
       {l:'Modules',v:data.length,c:'#7c8fe8'},
     ];
-    sBoxes.forEach(({l,v,c},i)=>{
-      const bx=ml+i*44;
-      fill('#1a0d2e'); doc.roundedRect(bx,195,38,28,2,2,'F');
-      const[cr,cg,cb]=rgb(c); doc.setTextColor(cr,cg,cb);
-      doc.setFont('helvetica','bold'); doc.setFontSize(20);
-      doc.text(safe(String(v)),bx+19,210,{align:'center'});
-      txtColor('#9880b8'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-      doc.text(safe(l),bx+19,218,{align:'center'});
+    boxes.forEach(({l,v,c},i)=>{
+      const bx=ml+i*43;
+      fill('#1a0d2e');doc.roundedRect(bx,198,37,26,2,2,'F');
+      const[cr,cg,cb]=rgb(c);doc.setTextColor(cr,cg,cb);
+      doc.setFont('helvetica','bold');doc.setFontSize(19);
+      doc.text(safe(String(v)),bx+18.5,212,{align:'center'});
+      tc('#9880b8');doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+      doc.text(safe(l),bx+18.5,220,{align:'center'});
     });
 
-    txtColor('#6a5a8a'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    doc.text('CONFIDENTIAL — For internal use only',ml,270);
-    doc.text('Generated by Security Platform Auditor',ml,276);
+    tc('#5a4a7a');doc.setFontSize(8);
+    doc.text('CONFIDENTIAL — For authorised internal use only',ml,268);
+    doc.text('Generated by Security Platform Auditor',ml,274);
 
-    // ── EXECUTIVE SUMMARY ───────────────────────────────────────────────────
-    doc.addPage(); addPageHeader(); y=24;
-    addSectionTitle('Executive Summary');
-    addBodyText(report.executiveSummary||'');
+    // ── EXEC SUMMARY ───────────────────────────────────────────────────────
+    doc.addPage();addHdr();y=24;
+    secTitle('Executive Summary');
+    bodyText(execSummary);
 
-    // ── KEY RISKS ────────────────────────────────────────────────────────────
-    addSectionTitle('Key Risk Areas');
-    addBodyText(report.keyRisks||'');
+    // ── KEY RISKS ───────────────────────────────────────────────────────────
+    secTitle('Key Risk Areas');
+    bodyText(keyRisks);
 
-    // ── MODULE ANALYSIS ──────────────────────────────────────────────────────
-    addSectionTitle('Module Analysis');
-    (report.moduleAnalysis||[]).forEach(({module,analysis})=>{
-      checkY(20);
-      // Module label
-      fill('#f0ebfa'); doc.rect(ml,y-4,cw,8,'F');
-      txtColor(PURPLE); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
-      doc.text(safe(module),ml+3,y+0.5);
-      // Module score
-      const modData=data.find(d=>d.label===module);
-      const sc=modData?.result?.score??0;
-      const scColor=sc>=80?'#2e7d32':sc>=60?'#e65100':'#c62828';
-      const[scr,scg,scb]=rgb(scColor); doc.setTextColor(scr,scg,scb);
-      doc.setFont('helvetica','bold'); doc.setFontSize(9);
-      doc.text(safe(`${sc}/100`),ml+cw-2,y+0.5,{align:'right'});
-      y+=10;
-      addBodyText(analysis||'',3);
-      y+=2;
+    // ── MODULE ANALYSIS ─────────────────────────────────────────────────────
+    secTitle('Module Analysis');
+    data.forEach(({label,result,isDemo})=>{
+      if(!result)return;
+      const score=result.score??0;
+      const sc=score>=80?'#2e7d32':score>=60?'#e65100':'#c62828';
+      const issues=Object.values(result.issues||{}).flat();
+      const mc=issues.filter(x=>x.sev==='critical').length;
+      const mw=issues.filter(x=>x.sev==='warning').length;
+      const rowH=issues.length>0?30:18;
+      checkY(rowH+4);
+
+      fill(LGRAY);doc.rect(ml,y-4,cw,rowH,'F');
+      fill(ACCENT);doc.rect(ml,y-4,2.5,rowH,'F');
+
+      tc(PURPLE);doc.setFont('helvetica','bold');doc.setFontSize(10);
+      doc.text(safe(label),ml+5,y+1);
+      const[scr,scg,scb]=rgb(sc);doc.setTextColor(scr,scg,scb);
+      doc.setFontSize(9);doc.text(safe(`${score}/100`),ml+cw-2,y+1,{align:'right'});
+
+      tc('#888');doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+      doc.text(safe(`${isDemo?'Demo data':'Real data'}  ·  ${issues.length} finding${issues.length!==1?'s':''}  ·  ${mc} critical  ·  ${mw} warnings`),ml+5,y+7);
+
+      if(issues.length>0){
+        const topIssue=issues.find(x=>x.sev==='critical')||issues[0];
+        const summary=`Key finding: ${safe(topIssue.name)}. ${safe(topIssue.rec||'')}`;
+        const sLines=doc.splitTextToSize(summary,cw-10);
+        tc(DGRAY);doc.setFontSize(8);
+        doc.text(sLines.slice(0,2),ml+5,y+13);
+        y+=rowH+6;
+      } else {
+        y+=rowH+4;
+      }
     });
 
-    // ── RECOMMENDATIONS ──────────────────────────────────────────────────────
-    addSectionTitle('Recommendations');
+    // ── RECOMMENDATIONS ─────────────────────────────────────────────────────
+    secTitle('Recommendations');
+    const prioColor={Immediate:'#c62828','Short-term':'#e65100','Long-term':'#1565c0'};
+    const prioBg={Immediate:'#fff5f5','Short-term':'#fff8f0','Long-term':'#eef2ff'};
 
-    const priorityColors={
-      'Immediate':'#c62828','Short-term':'#e65100','Long-term':'#1565c0'
-    };
-    const priorityBg={
-      'Immediate':'#fff5f5','Short-term':'#fff8f0','Long-term':'#e8f0ff'
-    };
+    allRecs.forEach(({priority,title,detail},i)=>{
+      const pc=prioColor[priority]||'#555';
+      const pb=prioBg[priority]||'#f9f9f9';
+      const titleL=doc.splitTextToSize(safe(title),cw-14);
+      const detailL=doc.splitTextToSize(safe(detail),cw-8);
+      const cardH=6+titleL.length*5.5+3+detailL.length*4.8+8;
+      checkY(cardH+4);
 
-    (report.recommendations||[]).forEach(({priority,title,detail},i)=>{
-      checkY(32);
-      const pc=priorityColors[priority]||'#555';
-      const pb=priorityBg[priority]||'#f9f9f9';
-      const[pr,pg,pb2]=rgb(pb); doc.setFillColor(pr,pg,pb2);
-      const detLines=doc.splitTextToSize(safe(detail),cw-10);
-      const cardH=22+detLines.length*4.5;
-      doc.roundedRect(ml,y-2,cw,cardH,2,2,'F');
-      const[br2,bg2,bb2]=rgb(pc); doc.setFillColor(br2,bg2,bb2);
-      doc.rect(ml,y-2,3,cardH,'F');
+      const[br,bg2,bb]=rgb(pb);doc.setFillColor(br,bg2,bb);
+      doc.roundedRect(ml,y-3,cw,cardH,2,2,'F');
+      const[pr,pg,pb2]=rgb(pc);doc.setFillColor(pr,pg,pb2);
+      doc.rect(ml,y-3,3,cardH,'F');
 
-      // Priority pill
-      doc.setFillColor(br2,bg2,bb2);
-      doc.roundedRect(ml+5,y,18,5,1,1,'F');
-      txtColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
-      doc.text(safe(priority),ml+14,y+3.5,{align:'center'});
+      // Priority badge
+      doc.setFillColor(pr,pg,pb2);doc.roundedRect(ml+5,y-1,22,5,1,1,'F');
+      tc('#fff');doc.setFont('helvetica','bold');doc.setFontSize(6.5);
+      doc.text(safe(priority),ml+16,y+2.5,{align:'center'});
 
       // Number
-      txtColor('#aaaaaa'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-      doc.text(safe(`${String(i+1).padStart(2,'0')}`),ml+cw-2,y+3.5,{align:'right'});
+      tc('#bbb');doc.setFont('helvetica','normal');doc.setFontSize(8);
+      doc.text(safe(String(i+1).padStart(2,'0')),ml+cw-2,y+2.5,{align:'right'});
       y+=8;
 
-      txtColor('#1a0d2e'); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-      const titleLines=doc.splitTextToSize(safe(title),cw-10);
-      doc.text(titleLines,ml+5,y); y+=titleLines.length*5+2;
+      tc('#1a0d2e');doc.setFont('helvetica','bold');doc.setFontSize(10.5);
+      doc.text(titleL,ml+5,y);y+=titleL.length*5.5+3;
 
-      txtColor('#444444'); doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-      doc.text(detLines,ml+5,y); y+=detLines.length*4.5+10;
+      tc('#333');doc.setFont('helvetica','normal');doc.setFontSize(8.8);
+      doc.text(detailL,ml+5,y);y+=detailL.length*4.8+10;
     });
 
-    // ── CONCLUSION ────────────────────────────────────────────────────────────
-    addSectionTitle('Conclusion');
-    addBodyText(report.conclusion||'');
+    // ── CONCLUSION ─────────────────────────────────────────────────────────
+    secTitle('Conclusion');
+    bodyText(conclusion);
 
-    // ── APPENDIX: FULL FINDINGS ───────────────────────────────────────────────
-    doc.addPage(); addPageHeader(); y=22;
-    addSectionTitle('Appendix: Full Findings');
+    // ── APPENDIX ──────────────────────────────────────────────────────────
+    doc.addPage();addHdr();y=22;
+    secTitle('Appendix: All Findings');
 
-    let lastSev2='';
+    let lastSev='';
     allFindings.forEach(({module,isDemo,issue})=>{
       const sev=issue.sev||'info';
-      if(sev!==lastSev2){
-        checkY(12);
-        const sevLabels={critical:'Critical Findings',warning:'Warnings',info:'Informational'};
-        const sevC={critical:'#c62828',warning:'#e65100',info:'#1565c0'};
-        const[sr,sg,sb]=rgb(sevC[sev]||'#555');
-        doc.setFillColor(sr,sg,sb);
-        doc.rect(ml,y-3,cw,7,'F');
-        txtColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-        doc.text(safe(sevLabels[sev]||sev),ml+3,y+1);
-        y+=10; lastSev2=sev;
+      if(sev!==lastSev){
+        checkY(10);
+        const labels={critical:'Critical',warning:'Warnings',info:'Informational'};
+        const cs={critical:'#c62828',warning:'#e65100',info:'#1565c0'};
+        const[sr,sg,sb]=rgb(cs[sev]||'#888');
+        doc.setFillColor(sr,sg,sb);doc.rect(ml,y-3,cw,7,'F');
+        tc('#fff');doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+        doc.text(safe(labels[sev]||sev),ml+3,y+1.5);
+        y+=10;lastSev=sev;
       }
 
-      checkY(14);
       const sName=safe(issue.name);
       const sDetail=safe(issue.detail);
       const sRec=safe(issue.rec);
-      const nameLines=doc.splitTextToSize(sName,cw-20);
-      const detLines2=sDetail.trim().length>1?doc.splitTextToSize(sDetail,cw-6):null;
-      const recLines=sRec.trim().length>1?doc.splitTextToSize(`Recommendation: ${sRec}`,cw-6):null;
-      const rowH=nameLines.length*4.5+(detLines2?detLines2.length*4+1:0)+(recLines?recLines.length*4+1:0)+6;
+      const nL=doc.splitTextToSize(sName,cw-22);
+      const dL=sDetail.trim().length>1?doc.splitTextToSize(sDetail,cw-6):null;
+      const rL=sRec.trim().length>1?doc.splitTextToSize(`→ ${sRec}`,cw-6):null;
+      const rH=nL.length*4.5+(dL?dL.length*4+1:0)+(rL?rL.length*4+1:0)+6;
+      checkY(rH+2);
 
-      checkY(rowH+2);
-      fill('#fafafa'); doc.rect(ml,y-3,cw,rowH,'F');
-      const sevC2={critical:'#c62828',warning:'#e65100',info:'#1565c0'};
-      const[ar,ag,ab]=rgb(sevC2[sev]||'#888');
-      doc.setFillColor(ar,ag,ab); doc.rect(ml,y-3,2,rowH,'F');
+      fill('#fafafa');doc.rect(ml,y-3,cw,rH,'F');
+      const cs={critical:'#c62828',warning:'#e65100',info:'#1565c0'};
+      const[ar,ag,ab]=rgb(cs[sev]||'#888');doc.setFillColor(ar,ag,ab);
+      doc.rect(ml,y-3,2,rH,'F');
 
-      txtColor('#888'); doc.setFont('helvetica','normal'); doc.setFontSize(7);
-      doc.text(safe(module),ml+cw-2,y-1,{align:'right'});
-      txtColor('#1a0d2e'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-      doc.text(nameLines,ml+4,y); y+=nameLines.length*4.5;
+      tc('#999');doc.setFont('helvetica','normal');doc.setFontSize(6.5);
+      doc.text(safe(module),ml+cw-1,y-1,{align:'right'});
 
-      if(detLines2){
-        txtColor('#555'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-        doc.text(detLines2,ml+4,y); y+=detLines2.length*4+1;
-      }
-      if(recLines){
-        txtColor('#2e7d32'); doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
-        doc.text(recLines,ml+4,y); y+=recLines.length*4+1;
-      }
+      tc('#1a0d2e');doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+      doc.text(nL,ml+4,y);y+=nL.length*4.5;
+
+      if(dL){tc('#444');doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text(dL,ml+4,y);y+=dL.length*4+1;}
+      if(rL){tc('#2e7d32');doc.setFont('helvetica','italic');doc.setFontSize(7.5);doc.text(rL,ml+4,y);y+=rL.length*4+1;}
       y+=6;
     });
 
-    // Footer on last page
     checkY(10);
-    drawColor('#e0e0e0'); doc.setLineWidth(0.3); doc.line(ml,y,ml+cw,y); y+=4;
-    txtColor('#aaaaaa'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    dc('#ddd');doc.setLineWidth(0.3);doc.line(ml,y,ml+cw,y);y+=5;
+    tc('#aaa');doc.setFont('helvetica','normal');doc.setFontSize(7.5);
     doc.text(safe(`Security Platform Auditor  ·  ${p.name}  ·  ${now}  ·  CONFIDENTIAL`),W/2,y,{align:'center'});
 
-    setStatus('Saving PDF...');
     doc.save(`${pid}-written-report-${new Date().toISOString().slice(0,10)}.pdf`);
 
   } catch(err){
     console.error('Written report error:',err);
-    alert('Report error: '+err.message);
-  } finally {
-    document.body.removeChild(overlay);
+    alert('PDF error: '+err.message);
   }
 }
 </script>
