@@ -403,7 +403,8 @@ function exportRecommendationsPDF(){
       doc.rect(ml,y-4,cw,7,'F');
 
       doc.setFont('helvetica','bold'); doc.setFontSize(8); text('#1a0d2e');
-      doc.text(label.length>22?label.slice(0,21)+'…':label,ml+2,y);
+      const safeLabel=String(label||'').trim()||'—';
+      doc.text(safeLabel.length>22?safeLabel.slice(0,21)+'\u2026':safeLabel,ml+2,y);
       doc.setFont('helvetica','normal');
       const[dr,dg,db]=rgb(isDemo?'#e65100':'#2e7d32');
       doc.setTextColor(dr,dg,db); doc.text(isDemo?'Demo':'Real',ml+72,y);
@@ -431,52 +432,61 @@ function exportRecommendationsPDF(){
         const[sr,sg,sb]=rgb(sc);
         doc.setFillColor(sr,sg,sb); doc.rect(ml,y-3,cw,9,'F');
         text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text(secTitles[sev],ml+3,y+3); y+=14;
+        doc.text(secTitles[sev]||sev,ml+3,y+3); y+=14;
         lastSev=sev;
       }
 
-      // Estimate height
-      const nameL=doc.splitTextToSize(issue.name||'—',cw-24);
-      const detL=doc.splitTextToSize(issue.detail||'',cw-8);
-      const recL=issue.rec?doc.splitTextToSize(issue.rec,cw-16):[];
-      const cardH=5+nameL.length*5+3+detL.length*4.5+(recL.length?recL.length*4.5+10:0)+8;
+      // Safe text splitting — never pass empty string to splitTextToSize
+      const safeName=String(issue.name||'Unnamed Rule').trim()||'Unnamed Rule';
+      const safeDetail=String(issue.detail||'').trim();
+      const safeRec=String(issue.rec||'').trim();
+      const safeMod=String(`${module||''}${isDemo?' · demo':''}`).trim()||'—';
+
+      const nameL=doc.splitTextToSize(safeName,cw-24);
+      const detL=safeDetail?doc.splitTextToSize(safeDetail,cw-8):[];
+      const recL=safeRec?doc.splitTextToSize(safeRec,cw-16):[];
+
+      const cardH=5+nameL.length*5+3+(detL.length?detL.length*4.5+2:0)+(recL.length?recL.length*4.5+12:0)+8;
       checkY(cardH+4);
 
-      // Card bg based on severity
+      // Card background
       const bgHex=sev==='critical'?'#fff5f5':sev==='warning'?'#fff8f0':'#f0f4ff';
       const[br,bg2,bb]=rgb(bgHex); doc.setFillColor(br,bg2,bb);
-      doc.roundedRect(ml,y-3,cw,cardH,2,2,'F');
-      // Left bar
+      doc.roundedRect(ml,y-3,cw,Math.max(cardH,12),2,2,'F');
+      // Left accent bar
       const[ar,ag,ab]=rgb(sc); doc.setFillColor(ar,ag,ab);
-      doc.rect(ml,y-3,3,cardH,'F');
+      doc.rect(ml,y-3,3,Math.max(cardH,12),'F');
 
-      // Sev pill
-      doc.setFillColor(ar,ag,ab); doc.roundedRect(ml+5,y-1,16,4.5,1,1,'F');
+      // Severity pill
+      doc.setFillColor(ar,ag,ab);
+      doc.roundedRect(ml+5,y-1,16,4.5,1,1,'F');
       text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(6);
       doc.text(sl,ml+13,y+2,{align:'center'});
 
-      // Module
+      // Module label
       text('#888888'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.text(`${module}${isDemo?' · demo':''}`,ml+24,y+2);
+      doc.text(safeMod,ml+24,y+2);
       y+=6;
 
-      // Name
+      // Rule name
       text('#1a0d2e'); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
       doc.text(nameL,ml+5,y); y+=nameL.length*5+2;
 
-      // Detail
-      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); text('#444444');
-      doc.text(detL,ml+5,y); y+=detL.length*4.5+2;
+      // Detail text (only if non-empty)
+      if(detL.length){
+        doc.setFont('helvetica','normal'); doc.setFontSize(8.5); text('#444444');
+        doc.text(detL,ml+5,y); y+=detL.length*4.5+2;
+      }
 
-      // Recommendation
+      // Recommendation box (only if non-empty)
       if(recL.length){
         y+=2;
         doc.setFillColor(232,245,233);
-        doc.roundedRect(ml+5,y-2,cw-10,recL.length*4.5+5,1,1,'F');
+        doc.roundedRect(ml+5,y-2,cw-10,recL.length*4.5+8,1,1,'F');
         text('#2e7d32'); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-        doc.text('RECOMMENDATION',ml+8,y+1.5);
+        doc.text('RECOMMENDATION',ml+8,y+2);
         doc.setFont('helvetica','italic'); doc.setFontSize(8);
-        doc.text(recL,ml+8,y+6); y+=recL.length*4.5+5;
+        doc.text(recL,ml+8,y+7); y+=recL.length*4.5+8;
       }
       y+=8;
     });
