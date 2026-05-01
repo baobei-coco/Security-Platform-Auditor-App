@@ -267,22 +267,26 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .stored-bar.visible{display:flex;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/docx@8.5.0/build/index.js">
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+<script>
+
 // ═══════════════════════════════════════════════════════════════
 // WORD DOCUMENT EXPORT
 // ═══════════════════════════════════════════════════════════════
 async function exportWordReport(){
   document.getElementById('export-menu').style.display='none';
 
-  if(!window.docx){
-    alert('Word library not loaded yet. Please wait a moment and try again.');
+  // docx@8 exposes as window.docx
+  const docxLib = window.docx;
+  if(!docxLib || !docxLib.Document){
+    alert('Word library not loaded. Please refresh the page and try again.\n\nIf this keeps happening, try the PDF export instead.');
     return;
   }
 
   const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,
          HeadingLevel,AlignmentType,WidthType,BorderStyle,ShadingType,
          VerticalAlign,PageNumber,PageBreak,LevelFormat,
-         Header,Footer,TabStopType,TabStopPosition} = window.docx;
+         Header,Footer,TabStopType,TabStopPosition} = docxLib;
 
   const pid=currentPlatform;
   const p=PLATFORMS[pid];
