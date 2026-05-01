@@ -267,6 +267,343 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .stored-bar.visible{display:flex;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.js">
+// ═══════════════════════════════════════════════════════════════
+// WORD DOCUMENT EXPORT
+// ═══════════════════════════════════════════════════════════════
+async function exportWordReport(){
+  document.getElementById('export-menu').style.display='none';
+
+  if(!window.docx){
+    alert('Word library not loaded yet. Please wait a moment and try again.');
+    return;
+  }
+
+  const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,
+         HeadingLevel,AlignmentType,WidthType,BorderStyle,ShadingType,
+         VerticalAlign,PageNumber,PageBreak,LevelFormat,
+         Header,Footer,TabStopType,TabStopPosition} = window.docx;
+
+  const pid=currentPlatform;
+  const p=PLATFORMS[pid];
+  const data=_getExportData(pid);
+  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  // Collect findings
+  const allFindings=[];
+  data.forEach(({label,result,isDemo})=>{
+    if(!result)return;
+    Object.entries(result.issues||{}).forEach(([key,issues])=>{
+      issues.forEach(issue=>allFindings.push({module:label,isDemo,issue,key}));
+    });
+  });
+  allFindings.sort((a,b)=>({critical:0,warning:1,info:2}[a.issue.sev]??3)-({critical:0,warning:1,info:2}[b.issue.sev]??3));
+
+  const crit=allFindings.filter(f=>f.issue.sev==='critical');
+  const warn=allFindings.filter(f=>f.issue.sev==='warning');
+  const info=allFindings.filter(f=>f.issue.sev==='info');
+  const scores=data.map(d=>d.result?.score??0);
+  const avgScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+  const weakest=data.filter(d=>d.result).sort((a,b)=>(a.result.score??0)-(b.result.score??0)).slice(0,3);
+  const strongest=data.filter(d=>d.result).sort((a,b)=>(b.result.score??0)-(a.result.score??0)).slice(0,2);
+  const demoData=data.filter(d=>d.isDemo);
+  const realData=data.filter(d=>!d.isDemo);
+
+  const posture=avgScore>=80?'strong':avgScore>=60?'moderate':'concerning';
+
+  // Helper: hex to docx color (no #)
+  const col=hex=>hex.replace('#','');
+  const PURPLE=col('#1a0d2e'), ACCENT=col('#e91e8c'), LGRAY=col('#f5f4f9');
+  const CRIT=col('#c62828'), WARN=col('#e65100'), INFO=col('#1565c0');
+  const DARK=col('#2c2c3e');
+
+  // Cell border helper
+  const border=(color='CCCCCC')=>({style:BorderStyle.SINGLE,size:1,color});
+  const borders=(color='CCCCCC')=>({top:border(color),bottom:border(color),left:border(color),right:border(color)});
+  const noBorder=()=>({style:BorderStyle.NONE,size:0,color:'FFFFFF'});
+  const noBorders=()=>({top:noBorder(),bottom:noBorder(),left:noBorder(),right:noBorder()});
+
+  // Para helper
+  const para=(text,opts={})=>new Paragraph({
+    children:[new TextRun({text:String(text||''),font:'Arial',size:opts.size||22,
+      bold:opts.bold||false,color:opts.color||DARK,italics:opts.italic||false})],
+    spacing:{before:opts.before||80,after:opts.after||80},
+    alignment:opts.align||AlignmentType.LEFT,
+    ...(opts.heading?{heading:opts.heading}:{}),
+  });
+
+  const h1=(text)=>new Paragraph({
+    children:[new TextRun({text:String(text||''),font:'Arial',size:36,bold:true,color:PURPLE})],
+    spacing:{before:320,after:160},
+    border:{bottom:{style:BorderStyle.SINGLE,size:8,color:col('#e91e8c'),space:4}},
+  });
+
+  const h2=(text)=>new Paragraph({
+    children:[new TextRun({text:String(text||''),font:'Arial',size:28,bold:true,color:PURPLE})],
+    spacing:{before:240,after:120},
+  });
+
+  const h3=(text,color=DARK)=>new Paragraph({
+    children:[new TextRun({text:String(text||''),font:'Arial',size:24,bold:true,color})],
+    spacing:{before:180,after:80},
+  });
+
+  const body=(text)=>new Paragraph({
+    children:[new TextRun({text:String(text||''),font:'Arial',size:22,color:DARK})],
+    spacing:{before:60,after:120},
+    alignment:AlignmentType.JUSTIFIED,
+  });
+
+  const spacer=()=>new Paragraph({children:[new TextRun('')],spacing:{before:0,after:120}});
+
+  // Coloured label cell
+  const labelCell=(text,bgColor,width=1800)=>new TableCell({
+    borders:noBorders(),
+    width:{size:width,type:WidthType.DXA},
+    shading:{fill:bgColor,type:ShadingType.CLEAR},
+    margins:{top:80,bottom:80,left:120,right:120},
+    verticalAlign:VerticalAlign.CENTER,
+    children:[new Paragraph({children:[new TextRun({text:String(text||''),font:'Arial',
+      size:18,bold:true,color:'FFFFFF'})],alignment:AlignmentType.CENTER})],
+  });
+
+  const textCell=(text,width=7560,opts={})=>new TableCell({
+    borders:noBorders(),
+    width:{size:width,type:WidthType.DXA},
+    shading:{fill:opts.bg||'FFFFFF',type:ShadingType.CLEAR},
+    margins:{top:80,bottom:80,left:120,right:120},
+    children:[new Paragraph({children:[new TextRun({text:String(text||''),font:'Arial',
+      size:opts.size||22,bold:opts.bold||false,color:opts.color||DARK,
+      italics:opts.italic||false})]})],
+  });
+
+  // Build prose (same logic as PDF version)
+  const execSummaryParas=[
+    `This report presents the findings of a security configuration audit conducted on ${now} for the ${p.name} platform. A total of ${data.length} security modules were examined, ${realData.length} of which contained real imported data. The audit identified ${allFindings.length} findings across all modules, comprising ${crit.length} critical issues, ${warn.length} warnings, and ${info.length} informational observations.`,
+    `The overall security posture of the ${p.name} platform is assessed as ${posture}, with an average module health score of ${avgScore} out of 100. ${weakest.length?`The modules requiring the most attention are ${weakest.map(d=>d.label).join(', ')}, each scoring below the recommended threshold of 80. `:''}${strongest.length&&strongest[0].result.score>=80?`Conversely, ${strongest.map(d=>d.label).join(' and ')} demonstrate strong configuration hygiene.`:''}`,
+    crit.length>0?`Of particular concern are ${crit.length} critical finding${crit.length>1?'s':''} that require immediate remediation. These include issues such as ${crit.slice(0,3).map(f=>f.issue.name).join(', ')}. Until these are resolved, the organisation faces elevated risk of security incidents including unauthorised access, data exfiltration, and policy bypass.`:`No critical findings were identified during this audit. However, the ${warn.length} warning-level findings should still be addressed to maintain a strong security posture.`
+  ];
+
+  const keyRiskParas=[];
+  const critByModule={};
+  crit.forEach(f=>{if(!critByModule[f.module])critByModule[f.module]=[];critByModule[f.module].push(f);});
+  const topModules=Object.entries(critByModule).sort((a,b)=>b[1].length-a[1].length).slice(0,3);
+  if(topModules.length) keyRiskParas.push(`The highest concentration of critical findings is in the ${topModules.map(([m,fs])=>`${m} module (${fs.length} critical finding${fs.length>1?'s':''})`).join(', ')}. These modules represent the most significant attack surface and should be prioritised for immediate remediation.`);
+
+  const noRem=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('no remediation'));
+  if(noRem.length) keyRiskParas.push(`A systemic risk identified across multiple modules is the presence of ${noRem.length} active rule${noRem.length>1?'s':''} with no automated remediation action configured. Rules that detect threats but take no automated action rely entirely on manual analyst intervention, which introduces response delays and increases the window of exposure.`);
+
+  const testRules=allFindings.filter(f=>f.issue.name&&/test|poc|staging/i.test(f.issue.name));
+  if(testRules.length) keyRiskParas.push(`${testRules.length} test or proof-of-concept rule${testRules.length>1?'s are':' is'} currently active in the production environment. Test rules are often configured with relaxed conditions or missing notifications, and their presence in production can create gaps in coverage or generate noise that masks real threats.`);
+
+  if(!keyRiskParas.length) keyRiskParas.push(`While no critical risks were identified, the ${warn.length} warning-level findings across the platform represent areas where security controls could be strengthened. Addressing these proactively will reduce the likelihood of issues escalating to critical status.`);
+
+  // Recommendations
+  const allRecs=[];
+  const noRemCrit=crit.filter(f=>f.issue.rec&&f.issue.rec.toLowerCase().includes('remediation'));
+  if(noRemCrit.length) allRecs.push({priority:'Immediate',pColor:CRIT,title:'Configure Automated Remediation for Critical Rules',detail:`${noRemCrit.length} critical-severity rule${noRemCrit.length>1?'s are':' is'} active without automated remediation actions. For each affected rule, configure appropriate responses such as session revocation, account suspension, or app blocking. Automated remediation dramatically reduces response time and limits damage during active incidents.`});
+  const silentAll=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('silent'));
+  if(silentAll.length) allRecs.push({priority:'Immediate',pColor:CRIT,title:'Enable Notifications on High-Severity Rules',detail:`${silentAll.length} rule${silentAll.length>1?'s':''} across the platform fire silently with no notification templates configured. Add platform notification templates to all high and critical severity rules to ensure real-time alerting.`});
+  const testInProd=allFindings.filter(f=>f.issue.key==='testInProd'||f.issue.key==='testRules');
+  if(testInProd.length) allRecs.push({priority:'Short-term',pColor:WARN,title:'Remove or Formalise Test Rules in Production',detail:`${testInProd.length} test or PoC rule${testInProd.length>1?'s are':' is'} currently active in production. Review each and either rename to production conventions, disable, or delete.`});
+  const inactive=allFindings.filter(f=>f.issue.key==='inactive');
+  if(inactive.length) allRecs.push({priority:'Short-term',pColor:WARN,title:'Review and Clean Up Inactive Rules',detail:`${inactive.length} rule${inactive.length>1?'s are':' is'} currently inactive. Each should be reviewed to determine if intentionally disabled or overlooked, and removed if no longer needed.`});
+  allRecs.push({priority:'Long-term',pColor:INFO,title:'Establish a Regular Security Rule Review Cycle',detail:'Implement a quarterly review process for all security rules. Each review should assess rule effectiveness, update conditions to reflect new threats, verify remediation actions are appropriate, and remove obsolete rules.'});
+  if(demoData.length) allRecs.push({priority:'Long-term',pColor:INFO,title:`Import Real Data for ${demoData.length} Demo Module${demoData.length>1?'s':''}`,detail:`${demoData.map(d=>d.label).join(', ')} ${demoData.length>1?'are':'is'} currently showing demo data. Export and import real configuration data to make findings actionable.`});
+
+  const conclusionText=`The ${p.name} platform security audit has identified ${allFindings.length} finding${allFindings.length!==1?'s':''} across ${data.length} modules, with an average health score of ${avgScore}/100. ${crit.length>0?`The ${crit.length} critical finding${crit.length>1?'s':''} identified in this report represent the most pressing risks and should be addressed as a priority.`:`The absence of critical findings indicates a generally well-configured platform.`} Following the ${allRecs.filter(r=>r.priority==='Immediate').length} immediate recommendation${allRecs.filter(r=>r.priority==='Immediate').length!==1?'s':''} in this report will move the platform toward a target health score of 85 or above across all modules.`;
+
+  try {
+    // Build summary table
+    const summaryTable=new Table({
+      width:{size:9360,type:WidthType.DXA},
+      columnWidths:[2340,2340,2340,2340],
+      rows:[new TableRow({children:[
+        ...[
+          {l:'Critical',v:crit.length,c:CRIT},
+          {l:'Warnings',v:warn.length,c:WARN},
+          {l:'Avg Score',v:`${avgScore}/100`,c:avgScore>=80?col('#2e7d32'):avgScore>=60?WARN:CRIT},
+          {l:'Modules',v:data.length,c:col('#1565c0')},
+        ].map(({l,v,c})=>new TableCell({
+          borders:noBorders(),
+          width:{size:2340,type:WidthType.DXA},
+          shading:{fill:LGRAY,type:ShadingType.CLEAR},
+          margins:{top:120,bottom:120,left:120,right:120},
+          children:[
+            new Paragraph({children:[new TextRun({text:String(v),font:'Arial',size:44,bold:true,color:c})],alignment:AlignmentType.CENTER}),
+            new Paragraph({children:[new TextRun({text:l,font:'Arial',size:18,color:col('#888888')})],alignment:AlignmentType.CENTER,spacing:{before:40}}),
+          ],
+        }))
+      ]})],
+    });
+
+    // Module health table
+    const moduleTableRows=[
+      new TableRow({children:[
+        ...[['Module',2880],['Data',1200],['Score',900],['Critical',1080],['Warnings',1200],['Findings',1200]].map(([h,w])=>
+          new TableCell({borders:borders(PURPLE),width:{size:w,type:WidthType.DXA},
+            shading:{fill:PURPLE,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},
+            children:[new Paragraph({children:[new TextRun({text:h,font:'Arial',size:20,bold:true,color:'FFFFFF'})]})]}))
+      ]}),
+      ...data.filter(d=>d.result).map(({label,result,isDemo},i)=>{
+        const score=result.score??0;
+        const sc=score>=80?col('#2e7d32'):score>=60?WARN:CRIT;
+        const issues=Object.values(result.issues||{}).flat();
+        const mc=issues.filter(x=>x.sev==='critical').length;
+        const mw=issues.filter(x=>x.sev==='warning').length;
+        const bg=i%2===0?LGRAY:'FFFFFF';
+        return new TableRow({children:[
+          new TableCell({borders:borders('DDDDDD'),width:{size:2880,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:String(label||''),font:'Arial',size:20,bold:true,color:PURPLE})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:1200,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:isDemo?'Demo':'Real',font:'Arial',size:20,color:isDemo?WARN:col('#2e7d32')})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:900,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:String(score),font:'Arial',size:20,bold:true,color:sc})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:1080,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:String(mc),font:'Arial',size:20,bold:mc>0,color:mc>0?CRIT:col('#666666')})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:1200,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:String(mw),font:'Arial',size:20,bold:mw>0,color:mw>0?WARN:col('#666666')})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:1200,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:String(issues.length),font:'Arial',size:20,color:DARK})]})] }),
+        ]});
+      })
+    ];
+
+    // Findings appendix table
+    const findingRows=[
+      new TableRow({children:[
+        ...['Module','Severity','Finding','Detail','Recommendation'].map((h,i)=>
+          new TableCell({borders:borders(PURPLE),width:{size:[1440,1080,2160,2520,2160][i],type:WidthType.DXA},
+            shading:{fill:PURPLE,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:100,right:100},
+            children:[new Paragraph({children:[new TextRun({text:h,font:'Arial',size:18,bold:true,color:'FFFFFF'})]})]})
+        )
+      ]}),
+      ...allFindings.map(({module,issue},i)=>{
+        const sc=issue.sev==='critical'?CRIT:issue.sev==='warning'?WARN:INFO;
+        const bg=i%2===0?LGRAY:'FFFFFF';
+        return new TableRow({children:[
+          new TableCell({borders:borders('DDDDDD'),width:{size:1440,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:60,bottom:60,left:100,right:100},children:[new Paragraph({children:[new TextRun({text:String(module||''),font:'Arial',size:18,color:DARK})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:1080,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:60,bottom:60,left:100,right:100},children:[new Paragraph({children:[new TextRun({text:(issue.sev||'').toUpperCase(),font:'Arial',size:18,bold:true,color:sc})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:2160,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:60,bottom:60,left:100,right:100},children:[new Paragraph({children:[new TextRun({text:String(issue.name||''),font:'Arial',size:18,bold:true,color:DARK})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:2520,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:60,bottom:60,left:100,right:100},children:[new Paragraph({children:[new TextRun({text:String(issue.detail||''),font:'Arial',size:18,color:DARK})]})] }),
+          new TableCell({borders:borders('DDDDDD'),width:{size:2160,type:WidthType.DXA},shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:60,bottom:60,left:100,right:100},children:[new Paragraph({children:[new TextRun({text:String(issue.rec||''),font:'Arial',size:18,color:col('#2e7d32'),italics:true})]})] }),
+        ]});
+      })
+    ];
+
+    // Build document
+    const doc=new Document({
+      styles:{
+        default:{document:{run:{font:'Arial',size:22}}},
+      },
+      sections:[{
+        properties:{
+          page:{
+            size:{width:12240,height:15840},
+            margin:{top:1440,right:1260,bottom:1440,left:1260},
+          }
+        },
+        headers:{
+          default:new Header({children:[
+            new Paragraph({
+              children:[
+                new TextRun({text:`${p.name} — Security Audit Report`,font:'Arial',size:18,color:col('#888888')}),
+                new TextRun({text:`	${now}`,font:'Arial',size:18,color:col('#888888')}),
+              ],
+              tabStops:[{type:TabStopType.RIGHT,position:TabStopPosition.MAX}],
+              border:{bottom:{style:BorderStyle.SINGLE,size:4,color:col('#e91e8c'),space:6}},
+              spacing:{after:200},
+            })
+          ]}),
+        },
+        footers:{
+          default:new Footer({children:[
+            new Paragraph({
+              children:[
+                new TextRun({text:'CONFIDENTIAL — For authorised internal use only  	',font:'Arial',size:16,color:col('#aaaaaa')}),
+                new TextRun({text:'Page ',font:'Arial',size:16,color:col('#aaaaaa')}),
+                new TextRun({children:[new PageNumber()]}),
+              ],
+              tabStops:[{type:TabStopType.RIGHT,position:TabStopPosition.MAX}],
+              border:{top:{style:BorderStyle.SINGLE,size:4,color:'DDDDDD',space:6}},
+            })
+          ]}),
+        },
+        children:[
+          // TITLE PAGE
+          spacer(),spacer(),spacer(),
+          new Paragraph({children:[new TextRun({text:p.name,font:'Arial',size:64,bold:true,color:PURPLE})],spacing:{after:160}}),
+          new Paragraph({children:[new TextRun({text:'Security Audit Report',font:'Arial',size:40,color:col('#5a3a7a')})],spacing:{after:80}}),
+          new Paragraph({children:[new TextRun({text:'Comprehensive findings, risk analysis and recommendations',font:'Arial',size:24,color:col('#888888'),italics:true})],spacing:{after:320}}),
+          para(now,{color:col('#888888'),before:0,after:80}),
+          para(`${data.length} modules analysed  ·  ${allFindings.length} findings  ·  Avg score: ${avgScore}/100`,{color:col('#888888'),before:0,after:400}),
+          summaryTable,
+          spacer(),
+          new Paragraph({children:[new TextRun({text:'CONFIDENTIAL — For authorised internal use only',font:'Arial',size:18,color:col('#aaaaaa'),italics:true})],spacing:{before:480,after:0}}),
+
+          // PAGE BREAK
+          new Paragraph({children:[new PageBreak()]}),
+
+          // EXECUTIVE SUMMARY
+          h1('Executive Summary'),
+          spacer(),
+          ...execSummaryParas.map(t=>body(t)),
+
+          // KEY RISKS
+          spacer(),h1('Key Risk Areas'),spacer(),
+          ...keyRiskParas.map(t=>body(t)),
+
+          // MODULE ANALYSIS
+          spacer(),h1('Module Analysis'),spacer(),
+          new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[2880,1200,900,1080,1200,1200],rows:moduleTableRows}),
+
+          // RECOMMENDATIONS
+          spacer(),h1('Recommendations'),spacer(),
+          ...allRecs.flatMap(({priority,pColor,title,detail},i)=>[
+            new Table({
+              width:{size:9360,type:WidthType.DXA},
+              columnWidths:[1440,7920],
+              rows:[
+                new TableRow({children:[
+                  new TableCell({borders:noBorders(),width:{size:1440,type:WidthType.DXA},
+                    shading:{fill:pColor,type:ShadingType.CLEAR},margins:{top:100,bottom:100,left:140,right:140},
+                    verticalAlign:VerticalAlign.CENTER,
+                    children:[
+                      new Paragraph({children:[new TextRun({text:String(i+1).padStart(2,'0'),font:'Arial',size:32,bold:true,color:'FFFFFF'})],alignment:AlignmentType.CENTER}),
+                      new Paragraph({children:[new TextRun({text:priority,font:'Arial',size:18,color:'FFFFFF'})],alignment:AlignmentType.CENTER,spacing:{before:40}}),
+                    ]}),
+                  new TableCell({borders:borders('EEEEEE'),width:{size:7920,type:WidthType.DXA},
+                    shading:{fill:LGRAY,type:ShadingType.CLEAR},margins:{top:120,bottom:120,left:180,right:180},
+                    children:[
+                      new Paragraph({children:[new TextRun({text:String(title||''),font:'Arial',size:26,bold:true,color:PURPLE})],spacing:{after:80}}),
+                      new Paragraph({children:[new TextRun({text:String(detail||''),font:'Arial',size:22,color:DARK})],alignment:AlignmentType.JUSTIFIED}),
+                    ]}),
+                ]}),
+              ],
+            }),
+            spacer(),
+          ]),
+
+          // CONCLUSION
+          h1('Conclusion'),spacer(),
+          body(conclusionText),
+
+          // APPENDIX
+          new Paragraph({children:[new PageBreak()]}),
+          h1('Appendix: All Findings'),spacer(),
+          new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[1440,1080,2160,2520,2160],rows:findingRows}),
+
+          spacer(),spacer(),
+        ]
+      }]
+    });
+
+    const buffer=await Packer.toBlob(doc);
+    const url=URL.createObjectURL(buffer);
+    const a=document.createElement('a');
+    a.href=url; a.download=`${pid}-written-report-${new Date().toISOString().slice(0,10)}.docx`;
+    a.click(); URL.revokeObjectURL(url);
+
+  } catch(err){
+    console.error('Word report error:',err);
+    alert('Word export error: '+err.message);
+  }
+}
+</script>
 <script>
 
 // ═══════════════════════════════════════════════════════════════
@@ -1077,6 +1414,7 @@ function exportRecommendationsPDF(){
             <button onclick="exportModuleReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📋 Module Data Report</button>
             <button onclick="exportRecommendationsPDF()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📄 Recommendations PDF</button>
             <button onclick="exportWrittenReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">✍️ Written Report (PDF)</button>
+            <button onclick="exportWordReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📝 Written Report (Word)</button>
             <button onclick="exportRecommendations()" style="width:100%;text-align:left;background:transparent;border:none;color:#9b7ec8;padding:8px 16px 10px;cursor:pointer;font-size:12px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">🌐 Recommendations HTML</button>
           </div>
         </div>
