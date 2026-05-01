@@ -421,6 +421,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="topbar-right">
       <button class="btn btn-secondary btn-sm" id="btn-demo" onclick="loadCurrentDemo()">⚡ Load Demo</button>
       <button class="btn btn-secondary btn-sm" onclick="exportAllCSV()">⬇ Export CSV</button>
+      <div class="dropdown" style="position:relative;display:inline-block;">
+        <button class="btn btn-secondary btn-sm" onclick="toggleExportMenu(event)" title="Export reports">📊 Export Report ▾</button>
+        <div id="export-menu" style="display:none;position:absolute;right:0;top:110%;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:200px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4);">
+          <div style="padding:6px 0;">
+            <button onclick="exportModuleReport()" style="width:100%;text-align:left;background:none;border:none;color:var(--text);padding:10px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='none'">📋 Module Data Report</button>
+            <button onclick="exportRecommendations()" style="width:100%;text-align:left;background:none;border:none;color:var(--text);padding:10px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='none'">🔍 Recommendations Report</button>
+          </div>
+        </div>
+      </div>
       <button class="btn btn-primary btn-sm" onclick="openImportModal(currentPlatform)">📥 Import Data</button>
     </div>
   </div>
@@ -2797,6 +2806,300 @@ fp:{
 }// end fp
 
 }; // END MODULE_DEFS
+
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT REPORT FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+function toggleExportMenu(e){
+  e.stopPropagation();
+  const m=document.getElementById('export-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+  document.addEventListener('click',()=>m.style.display='none',{once:true});
+}
+
+function _getExportData(pid){
+  const stored=JSON.parse(localStorage.getItem(lsKey(pid))||'{}');
+  const p=PLATFORMS[pid];
+  const defs=MODULE_DEFS[pid]||{};
+  const modules=p.modules.filter(m=>m.id!=='dash');
+  const results=[];
+  for(const mod of modules){
+    const mid=mod.id;
+    const def=defs[mid];
+    if(!def) continue;
+    const rawData=stored[mid]&&stored[mid].length?stored[mid]:def.demo?.()||[];
+    const isDemo=!(stored[mid]&&stored[mid].length);
+    let result=null;
+    try{ result=def.analyze(rawData); }catch(e){ continue; }
+    results.push({mid,label:mod.label,isDemo,result,rawData});
+  }
+  return results;
+}
+
+function _sevColor(sev){
+  if(sev==='critical') return '#e53935';
+  if(sev==='warning') return '#fb8c00';
+  if(sev==='info') return '#1e88e5';
+  return '#888';
+}
+
+function _sevLabel(sev){
+  if(sev==='critical') return 'CRITICAL';
+  if(sev==='warning') return 'WARNING';
+  if(sev==='info') return 'INFO';
+  return sev?.toUpperCase()||'—';
+}
+
+// ── Module Data Report ───────────────────────────────────────────────────────
+function exportModuleReport(){
+  document.getElementById('export-menu').style.display='none';
+  const pid=currentPlatform;
+  const p=PLATFORMS[pid];
+  const data=_getExportData(pid);
+  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  let html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${p.name} — Module Data Report</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#f4f6fb;padding:0;}
+  .cover{background:linear-gradient(135deg,#1a0d2e 0%,#2d1b4e 100%);color:#fff;padding:60px 48px;min-height:220px;}
+  .cover h1{font-size:28px;font-weight:700;margin-bottom:8px;}
+  .cover .sub{font-size:14px;opacity:.75;margin-top:6px;}
+  .cover .meta{font-size:13px;opacity:.6;margin-top:4px;}
+  .toc{background:#fff;padding:32px 48px;border-bottom:1px solid #e0e0e0;}
+  .toc h2{font-size:16px;font-weight:600;color:#1a0d2e;margin-bottom:16px;}
+  .toc-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dotted #ddd;font-size:13px;}
+  .toc-score{font-weight:600;}
+  .section{background:#fff;margin:20px 40px;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .section-header{padding:20px 24px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;}
+  .section-title{font-size:17px;font-weight:700;color:#1a0d2e;}
+  .section-badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
+  .badge-demo{background:#fff3e0;color:#e65100;}
+  .badge-real{background:#e8f5e9;color:#2e7d32;}
+  .score-ring{display:flex;align-items:center;gap:8px;}
+  .score-val{font-size:24px;font-weight:800;}
+  .score-lbl{font-size:11px;color:#888;}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;padding:20px 24px;background:#fafafa;border-bottom:1px solid #f0f0f0;}
+  .stat-box{background:#fff;border-radius:8px;padding:14px 16px;border:1px solid #ececec;}
+  .stat-val{font-size:22px;font-weight:700;color:#1a0d2e;}
+  .stat-val.red{color:#e53935;} .stat-val.green{color:#2e7d32;} .stat-val.yellow{color:#f57c00;} .stat-val.blue{color:#1565c0;}
+  .stat-lbl{font-size:11px;color:#888;margin-top:2px;}
+  .issues-section{padding:20px 24px;}
+  .issues-section h3{font-size:13px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;}
+  .issue-item{border-left:3px solid #ddd;padding:10px 14px;margin-bottom:8px;background:#fafafa;border-radius:0 6px 6px 0;}
+  .issue-item.critical{border-color:#e53935;background:#fff5f5;}
+  .issue-item.warning{border-color:#fb8c00;background:#fff8f0;}
+  .issue-item.info{border-color:#1e88e5;background:#f0f4ff;}
+  .issue-name{font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:3px;}
+  .issue-detail{font-size:12px;color:#555;margin-bottom:4px;}
+  .issue-rec{font-size:12px;color:#2e7d32;font-style:italic;}
+  .issue-sev{font-size:10px;font-weight:700;color:#fff;padding:2px 7px;border-radius:10px;display:inline-block;margin-bottom:6px;}
+  .no-issues{padding:16px;text-align:center;color:#888;font-size:13px;}
+  .footer{text-align:center;padding:24px;color:#aaa;font-size:11px;}
+  @media print{.section{break-inside:avoid;margin:10px 20px;} body{background:#fff;}}
+</style></head><body>`;
+
+  // Cover
+  html+=`<div class="cover">
+    <h1>${p.name} — Module Data Report</h1>
+    <div class="sub">Security Platform Audit — Detailed Module Analysis</div>
+    <div class="meta">Generated ${now} &nbsp;·&nbsp; ${data.length} modules analysed</div>
+  </div>`;
+
+  // TOC
+  html+=`<div class="toc"><h2>Contents</h2>`;
+  data.forEach(({mid,label,result,isDemo})=>{
+    const score=result?.score??0;
+    const scoreColor=score>=80?'#2e7d32':score>=60?'#f57c00':'#e53935';
+    html+=`<div class="toc-item"><span>${label}${isDemo?' <em>(demo)</em>':''}</span><span class="toc-score" style="color:${scoreColor}">${score}/100</span></div>`;
+  });
+  html+='</div>';
+
+  // Module sections
+  data.forEach(({mid,label,result,isDemo,rawData})=>{
+    if(!result) return;
+    const score=result.score??0;
+    const scoreColor=score>=80?'#2e7d32':score>=60?'#f57c00':'#e53935';
+    const totalIssues=Object.values(result.issues||{}).flat().length;
+    const ruleCount=Array.isArray(result.rules)?result.rules.length:
+      Array.isArray(result.items)?result.items.length:
+      Array.isArray(rawData)?rawData.length:0;
+
+    html+=`<div class="section">
+      <div class="section-header">
+        <div>
+          <div class="section-title">${label}</div>
+          <div style="font-size:12px;color:#888;margin-top:2px;">${totalIssues} finding${totalIssues!==1?'s':''} · ${ruleCount} records</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="section-badge ${isDemo?'badge-demo':'badge-real'}">${isDemo?'DEMO DATA':'REAL DATA'}</span>
+          <div class="score-ring"><div><div class="score-val" style="color:${scoreColor}">${score}</div><div class="score-lbl">/ 100</div></div></div>
+        </div>
+      </div>`;
+
+    // Stats grid — severity breakdown
+    const allIssues=Object.values(result.issues||{}).flat();
+    const critCount=allIssues.filter(i=>i.sev==='critical').length;
+    const warnCount=allIssues.filter(i=>i.sev==='warning').length;
+    const infoCount=allIssues.filter(i=>i.sev==='info').length;
+    html+=`<div class="stats-grid">
+      <div class="stat-box"><div class="stat-val blue">${ruleCount}</div><div class="stat-lbl">Total Records</div></div>
+      <div class="stat-box"><div class="stat-val ${critCount>0?'red':'green'}">${critCount}</div><div class="stat-lbl">Critical Findings</div></div>
+      <div class="stat-box"><div class="stat-val ${warnCount>0?'yellow':'green'}">${warnCount}</div><div class="stat-lbl">Warnings</div></div>
+      <div class="stat-box"><div class="stat-val">${infoCount}</div><div class="stat-lbl">Info</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:${scoreColor}">${score}</div><div class="stat-lbl">Health Score</div></div>
+    </div>`;
+
+    // Issues per section
+    html+='<div class="issues-section">';
+    const issueEntries=Object.entries(result.issues||{});
+    const hasAny=allIssues.length>0;
+    if(!hasAny){
+      html+='<div class="no-issues">✅ No issues found in this module</div>';
+    } else {
+      issueEntries.forEach(([key,issues])=>{
+        if(!issues.length) return;
+        const sectionName=key.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
+        html+=`<h3>${sectionName} (${issues.length})</h3>`;
+        issues.forEach(issue=>{
+          const sev=issue.sev||'info';
+          html+=`<div class="issue-item ${sev}">
+            <span class="issue-sev" style="background:${_sevColor(sev)}">${_sevLabel(sev)}</span>
+            <div class="issue-name">${issue.name||'—'}</div>
+            <div class="issue-detail">${issue.detail||''}</div>
+            ${issue.rec?`<div class="issue-rec">→ ${issue.rec}</div>`:''}
+          </div>`;
+        });
+      });
+    }
+    html+='</div></div>';
+  });
+
+  html+=`<div class="footer">Security Platform Auditor &nbsp;·&nbsp; ${p.name} &nbsp;·&nbsp; ${now}</div></body></html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${pid}-module-report-${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+}
+
+// ── Recommendations Report ────────────────────────────────────────────────────
+function exportRecommendations(){
+  document.getElementById('export-menu').style.display='none';
+  const pid=currentPlatform;
+  const p=PLATFORMS[pid];
+  const data=_getExportData(pid);
+  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  // Flatten all issues across all modules, sorted critical first
+  const allFindings=[];
+  data.forEach(({mid,label,result,isDemo})=>{
+    if(!result) return;
+    Object.entries(result.issues||{}).forEach(([key,issues])=>{
+      issues.forEach(issue=>{
+        allFindings.push({module:label,mid,isDemo,issue,key});
+      });
+    });
+  });
+  const sevOrder={critical:0,warning:1,info:2};
+  allFindings.sort((a,b)=>(sevOrder[a.issue.sev]??3)-(sevOrder[b.issue.sev]??3));
+
+  const critCount=allFindings.filter(f=>f.issue.sev==='critical').length;
+  const warnCount=allFindings.filter(f=>f.issue.sev==='warning').length;
+  const infoCount=allFindings.filter(f=>f.issue.sev==='info').length;
+
+  let html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${p.name} — Recommendations Report</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#f4f6fb;}
+  .cover{background:linear-gradient(135deg,#1a0d2e 0%,#2d1b4e 100%);color:#fff;padding:60px 48px;}
+  .cover h1{font-size:28px;font-weight:700;margin-bottom:8px;}
+  .cover .sub{font-size:14px;opacity:.75;margin-top:6px;}
+  .cover .meta{font-size:13px;opacity:.6;margin-top:4px;}
+  .summary{background:#fff;padding:28px 48px;border-bottom:1px solid #e0e0e0;display:flex;gap:32px;align-items:center;}
+  .sum-box{text-align:center;}
+  .sum-val{font-size:32px;font-weight:800;}
+  .sum-lbl{font-size:12px;color:#888;margin-top:2px;}
+  .sum-val.red{color:#e53935;} .sum-val.yellow{color:#f57c00;} .sum-val.blue{color:#1565c0;}
+  .findings{padding:24px 40px;}
+  .finding{background:#fff;border-radius:10px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:4px solid #ddd;}
+  .finding.critical{border-color:#e53935;}
+  .finding.warning{border-color:#fb8c00;}
+  .finding.info{border-color:#1e88e5;}
+  .finding-header{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px 10px;}
+  .finding-name{font-size:14px;font-weight:700;color:#1a1a2e;}
+  .finding-module{font-size:11px;color:#888;margin-top:2px;}
+  .sev-pill{font-size:10px;font-weight:700;color:#fff;padding:3px 10px;border-radius:12px;white-space:nowrap;flex-shrink:0;}
+  .finding-body{padding:0 18px 14px;}
+  .finding-detail{font-size:13px;color:#444;margin-bottom:8px;line-height:1.5;}
+  .finding-rec{font-size:13px;color:#2e7d32;font-weight:500;padding:8px 12px;background:#f1f8e9;border-radius:6px;}
+  .finding-rec::before{content:'→ Recommendation: ';}
+  .finding-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .tag{font-size:10px;padding:2px 8px;border-radius:10px;background:#f0f0f0;color:#555;font-weight:600;}
+  .section-divider{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;padding:16px 40px 8px;border-top:1px solid #e8e8e8;margin-top:8px;}
+  .no-findings{text-align:center;padding:60px;color:#aaa;font-size:15px;}
+  .footer{text-align:center;padding:24px;color:#aaa;font-size:11px;}
+  @media print{.finding{break-inside:avoid;} body{background:#fff;}}
+</style></head><body>`;
+
+  html+=`<div class="cover">
+    <h1>${p.name} — Recommendations Report</h1>
+    <div class="sub">Security findings and remediation guidance across all modules</div>
+    <div class="meta">Generated ${now} &nbsp;·&nbsp; ${allFindings.length} total findings</div>
+  </div>`;
+
+  html+=`<div class="summary">
+    <div class="sum-box"><div class="sum-val red">${critCount}</div><div class="sum-lbl">Critical</div></div>
+    <div class="sum-box"><div class="sum-val yellow">${warnCount}</div><div class="sum-lbl">Warnings</div></div>
+    <div class="sum-box"><div class="sum-val blue">${infoCount}</div><div class="sum-lbl">Info</div></div>
+    <div class="sum-box"><div class="sum-val">${allFindings.length}</div><div class="sum-lbl">Total Findings</div></div>
+    <div style="margin-left:auto;font-size:13px;color:#888;">Sorted by severity · Modules: ${data.length}</div>
+  </div>`;
+
+  if(allFindings.length===0){
+    html+='<div class="no-findings">✅ No findings across any module — your platform looks healthy!</div>';
+  } else {
+    html+='<div class="findings">';
+    let lastSev='';
+    allFindings.forEach(({module,isDemo,issue})=>{
+      const sev=issue.sev||'info';
+      if(sev!==lastSev){
+        const labels={critical:'🔴 Critical Findings',warning:'🟡 Warnings',info:'🔵 Info'};
+        html+=`</div><div class="section-divider">${labels[sev]||sev}</div><div class="findings">`;
+        lastSev=sev;
+      }
+      const tags=(issue.tags||[]).map(t=>`<span class="tag">${t.v||t}</span>`).join('');
+      html+=`<div class="finding ${sev}">
+        <div class="finding-header">
+          <div>
+            <div class="finding-name">${issue.name||'—'}</div>
+            <div class="finding-module">${module}${isDemo?' · demo data':''}</div>
+          </div>
+          <span class="sev-pill" style="background:${_sevColor(sev)}">${_sevLabel(sev)}</span>
+        </div>
+        <div class="finding-body">
+          <div class="finding-detail">${issue.detail||''}</div>
+          ${issue.rec?`<div class="finding-rec">${issue.rec}</div>`:''}
+          ${tags?`<div class="finding-tags">${tags}</div>`:''}
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  html+=`<div class="footer">Security Platform Auditor &nbsp;·&nbsp; ${p.name} &nbsp;·&nbsp; ${now}</div></body></html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${pid}-recommendations-${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+}
 </script>
 
 <script>
