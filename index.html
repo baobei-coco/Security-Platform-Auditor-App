@@ -271,6 +271,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // ── Recommendations PDF (written report) ─────────────────────────────────────
 function exportRecommendationsPDF(){
   document.getElementById('export-menu').style.display='none';
+
+  // Check jsPDF loaded
+  const jsPDFLib = window.jspdf || window.jsPDF;
+  if(!jsPDFLib){
+    alert('PDF library not loaded yet. Please wait a moment and try again.');
+    return;
+  }
+  const {jsPDF} = jsPDFLib;
+
   const pid=currentPlatform;
   const p=PLATFORMS[pid];
   const data=_getExportData(pid);
@@ -291,222 +300,199 @@ function exportRecommendationsPDF(){
   const warnCount=allFindings.filter(f=>f.issue.sev==='warning').length;
   const infoCount=allFindings.filter(f=>f.issue.sev==='info').length;
 
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210, ml=18, mr=18, cw=W-ml-mr;
-  let y=0;
+  try {
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210,ml=16,mr=16,cw=W-ml-mr;
+    let y=0;
 
-  const PURPLE='#1a0d2e', ACCENT='#e91e8c', LAVENDER='#c9b8e8';
-  const CRIT_C='#c62828', WARN_C='#e65100', INFO_C='#1565c0';
-  const CRIT_BG='#fff5f5', WARN_BG='#fff8f0', INFO_BG='#f0f4ff';
+    const rgb=hex=>{
+      const h=hex.replace('#','');
+      return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+    };
+    const fill=hex=>{const[r,g,b]=rgb(hex);doc.setFillColor(r,g,b);};
+    const text=hex=>{const[r,g,b]=rgb(hex);doc.setTextColor(r,g,b);};
+    const draw=hex=>{const[r,g,b]=rgb(hex);doc.setDrawColor(r,g,b);};
 
-  const hexToRgb=hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return[r,g,b];};
-  const setFill=hex=>{const[r,g,b]=hexToRgb(hex);doc.setFillColor(r,g,b);};
-  const setTextColor=hex=>{const[r,g,b]=hexToRgb(hex);doc.setTextColor(r,g,b);};
-  const setDrawColor=hex=>{const[r,g,b]=hexToRgb(hex);doc.setDrawColor(r,g,b);};
+    const PURPLE='#1a0d2e',ACCENT='#e91e8c',LAV='#c9b8e8';
+    const CR='#c62828',WR='#e65100',IR='#1565c0';
 
-  const newPage=()=>{doc.addPage();y=20;};
-  const checkSpace=(need=30)=>{if(y+need>278)newPage();};
+    const sevColor=s=>s==='critical'?CR:s==='warning'?WR:IR;
+    const sevLabel=s=>s==='critical'?'CRITICAL':s==='warning'?'WARNING':'INFO';
 
-  // ── COVER PAGE ──────────────────────────────────────────────────────────────
-  setFill(PURPLE); doc.rect(0,0,W,297,'F');
+    const checkY=(need=30)=>{ if(y+need>275){ doc.addPage(); addHdr(); y=22; } };
 
-  // Decorative accent bar
-  setFill(ACCENT); doc.rect(0,0,6,297,'F');
+    const addHdr=()=>{
+      fill(PURPLE); doc.rect(0,0,W,12,'F');
+      fill(ACCENT); doc.rect(0,0,5,12,'F');
+      text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.text(`${p.name} — Recommendations Report`,10,8);
+      text('#a896c8'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      doc.text(now,W-mr,8,{align:'right'});
+    };
 
-  // Title block
-  setTextColor('#ffffff');
-  doc.setFont('helvetica','bold'); doc.setFontSize(26);
-  doc.text(p.name,18,70);
+    // ── COVER PAGE ──────────────────────────────────────────────────────────
+    fill(PURPLE); doc.rect(0,0,W,297,'F');
+    fill(ACCENT); doc.rect(0,0,5,297,'F');
 
-  doc.setFont('helvetica','normal'); doc.setFontSize(14);
-  setTextColor(LAVENDER);
-  doc.text('Security Recommendations Report',18,82);
+    text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(24);
+    doc.text(p.name,16,65);
+    doc.setFontSize(14); doc.setFont('helvetica','normal');
+    text(LAV); doc.text('Security Recommendations Report',16,76);
+    doc.setFontSize(10); text('#9880b8');
+    doc.text('Findings, risk analysis and remediation guidance',16,85);
+    doc.text(`Generated: ${now}`,16,92);
 
-  doc.setFontSize(11); setTextColor('#a896c8');
-  doc.text('Findings, risk analysis and remediation guidance',18,92);
-  doc.text(`Generated: ${now}`,18,100);
+    // Summary count boxes
+    const boxes=[
+      {l:'Critical',v:critCount,c:CR},
+      {l:'Warnings',v:warnCount,c:WR},
+      {l:'Info',v:infoCount,c:IR},
+      {l:'Total',v:allFindings.length,c:'#ffffff'},
+    ];
+    boxes.forEach(({l,v,c},i)=>{
+      const bx=16+i*46;
+      fill('#2a1a42'); doc.roundedRect(bx,115,40,26,2,2,'F');
+      const[cr,cg,cb]=rgb(c); doc.setTextColor(cr,cg,cb);
+      doc.setFont('helvetica','bold'); doc.setFontSize(18);
+      doc.text(String(v),bx+20,130,{align:'center'});
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      text('#9880b8'); doc.text(l,bx+20,138,{align:'center'});
+    });
 
-  // Summary boxes
-  const boxes=[
-    {label:'Critical',val:critCount,color:CRIT_C},
-    {label:'Warnings',val:warnCount,color:WARN_C},
-    {label:'Info',val:infoCount,color:INFO_C},
-    {label:'Total',val:allFindings.length,color:'#ffffff'},
-  ];
-  let bx=18;
-  boxes.forEach(({label,val,color})=>{
-    setFill('rgba(255,255,255,0.05)');
-    doc.setFillColor(255,255,255); doc.setGState(new doc.GState({opacity:0.07}));
-    doc.roundedRect(bx,130,40,30,3,3,'F');
-    doc.setGState(new doc.GState({opacity:1}));
-    const[r,g,b]=hexToRgb(color);
-    doc.setTextColor(r,g,b);
-    doc.setFont('helvetica','bold'); doc.setFontSize(20);
-    doc.text(String(val),bx+20,148,{align:'center'});
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    setTextColor('#a896c8');
-    doc.text(label,bx+20,156,{align:'center'});
-    bx+=44;
-  });
+    text('#9880b8'); doc.setFontSize(9);
+    doc.text(`${data.length} modules analysed  ·  Platform: ${p.name}`,16,160);
 
-  // Modules summary
-  setTextColor('#a896c8'); doc.setFont('helvetica','normal'); doc.setFontSize(10);
-  doc.text(`Modules analysed: ${data.length}  ·  Platform: ${p.name}`,18,190);
+    // ── EXECUTIVE SUMMARY ───────────────────────────────────────────────────
+    doc.addPage(); addHdr(); y=22;
 
-  // ── EXECUTIVE SUMMARY PAGE ────────────────────────────────────────────────
-  doc.addPage(); y=20;
+    text(PURPLE); doc.setFont('helvetica','bold'); doc.setFontSize(15);
+    doc.text('Executive Summary',ml,y); y+=7;
+    draw(ACCENT); doc.setLineWidth(0.6); doc.line(ml,y,ml+cw,y); y+=7;
 
-  // Header bar
-  setFill(PURPLE); doc.rect(0,0,W,14,'F');
-  setFill(ACCENT); doc.rect(0,0,6,14,'F');
-  setTextColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-  doc.text(`${p.name} — Recommendations Report`,12,9);
-  setTextColor('#a896c8'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-  doc.text(now,W-mr,9,{align:'right'});
-  y=26;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); text('#333333');
+    const intro=`This report presents a comprehensive audit of the ${p.name} security platform. `+
+      `${data.length} modules were analysed, identifying ${allFindings.length} findings: `+
+      `${critCount} critical requiring immediate action, ${warnCount} warnings for near-term remediation, `+
+      `and ${infoCount} informational observations.`;
+    const introL=doc.splitTextToSize(intro,cw);
+    doc.text(introL,ml,y); y+=introL.length*5+8;
 
-  // Section title
-  setTextColor(PURPLE); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('Executive Summary',ml,y); y+=10;
+    // Module table header
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); text(PURPLE);
+    doc.text('Module Health Overview',ml,y); y+=6;
 
-  setDrawColor(ACCENT); doc.setLineWidth(0.8); doc.line(ml,y,ml+cw,y); y+=8;
+    fill('#2d1b4e'); doc.rect(ml,y-4,cw,7,'F');
+    text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('Module',ml+2,y);
+    doc.text('Data',ml+72,y);
+    doc.text('Score',ml+94,y);
+    doc.text('Critical',ml+112,y);
+    doc.text('Warnings',ml+130,y);
+    doc.text('Findings',ml+152,y);
+    y+=5;
 
-  // Intro paragraph
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); setTextColor('#2c2c3e');
-  const intro=`This report presents a comprehensive audit of the ${p.name} security platform configuration. `+
-    `The analysis examined ${data.length} security modules and identified ${allFindings.length} findings requiring attention. `+
-    `Of these, ${critCount} are classified as critical and require immediate remediation, `+
-    `${warnCount} are warnings that should be addressed in the near term, `+
-    `and ${infoCount} are informational observations for future consideration.`;
-  const introLines=doc.splitTextToSize(intro,cw);
-  doc.text(introLines,ml,y); y+=introLines.length*5+6;
+    data.forEach(({label,result,isDemo},i)=>{
+      checkY(8);
+      const score=result?.score??0;
+      const crit=Object.values(result?.issues||{}).flat().filter(x=>x.sev==='critical').length;
+      const warn=Object.values(result?.issues||{}).flat().filter(x=>x.sev==='warning').length;
+      const tot=Object.values(result?.issues||{}).flat().length;
+      const sc=score>=80?'#2e7d32':score>=60?'#e65100':'#c62828';
 
-  // Module health table
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); setTextColor(PURPLE);
-  doc.text('Module Health Overview',ml,y); y+=7;
+      if(i%2===0){fill('#f8f6fc');}else{fill('#ffffff');}
+      doc.rect(ml,y-4,cw,7,'F');
 
-  const rowH=8;
-  // Header row
-  setFill('#2d1b4e'); doc.rect(ml,y-5,cw,rowH,'F');
-  setTextColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-  doc.text('Module',ml+2,y); 
-  doc.text('Data',ml+70,y);
-  doc.text('Score',ml+95,y);
-  doc.text('Critical',ml+115,y);
-  doc.text('Warnings',ml+135,y);
-  doc.text('Total Findings',ml+158,y);
-  y+=5;
-
-  data.forEach(({label,result,isDemo},i)=>{
-    checkSpace(9);
-    const score=result?.score??0;
-    const crit=Object.values(result?.issues||{}).flat().filter(x=>x.sev==='critical').length;
-    const warn=Object.values(result?.issues||{}).flat().filter(x=>x.sev==='warning').length;
-    const total=Object.values(result?.issues||{}).flat().length;
-    const scoreColor=score>=80?'#2e7d32':score>=60?'#e65100':'#c62828';
-    
-    if(i%2===0){setFill('#f8f6fc'); doc.rect(ml,y-4,cw,rowH,'F');}
-    else{setFill('#ffffff'); doc.rect(ml,y-4,cw,rowH,'F');}
-
-    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); setTextColor('#1a0d2e');
-    doc.text(label,ml+2,y);
-    doc.setFont('helvetica','normal'); 
-    setTextColor(isDemo?'#e65100':'#2e7d32');
-    doc.text(isDemo?'Demo':'Real',ml+70,y);
-    const[sr,sg,sb]=hexToRgb(scoreColor);
-    doc.setTextColor(sr,sg,sb); doc.setFont('helvetica','bold');
-    doc.text(`${score}`,ml+95,y);
-    doc.setFont('helvetica','normal');
-    setTextColor(crit>0?'#c62828':'#666'); doc.text(String(crit),ml+115,y);
-    setTextColor(warn>0?'#e65100':'#666'); doc.text(String(warn),ml+135,y);
-    setTextColor('#333'); doc.text(String(total),ml+158,y);
-    y+=rowH;
-  });
-  y+=6;
-
-  // ── FINDINGS PAGES ────────────────────────────────────────────────────────
-  const addPageHeader=()=>{
-    setFill(PURPLE); doc.rect(0,0,W,14,'F');
-    setFill(ACCENT); doc.rect(0,0,6,14,'F');
-    setTextColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-    doc.text(`${p.name} — Recommendations Report`,12,9);
-    setTextColor('#a896c8'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    doc.text(now,W-mr,9,{align:'right'});
-  };
-
-  let lastSev='';
-  allFindings.forEach(({module,isDemo,issue},idx)=>{
-    const sev=issue.sev||'info';
-    const sevColor=sev==='critical'?CRIT_C:sev==='warning'?WARN_C:INFO_C;
-    const sevBg=sev==='critical'?'#fff5f5':sev==='warning'?'#fff8f0':'#f0f4ff';
-    const sevLabel=sev==='critical'?'CRITICAL':sev==='warning'?'WARNING':'INFO';
-
-    // Section divider for new severity level
-    if(sev!==lastSev){
-      doc.addPage(); addPageHeader(); y=24;
-      const secLabels={critical:'Critical Findings — Immediate Action Required',warning:'Warnings — Address in Near Term',info:'Informational — For Review'};
-      setFill(sev==='critical'?'#c62828':sev==='warning'?'#e65100':'#1565c0');
-      doc.rect(ml,y-4,cw,10,'F');
-      setTextColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-      doc.text(secLabels[sev],ml+3,y+2); y+=14;
-      lastSev=sev;
-    }
-
-    // Estimate card height
-    const nameLines=doc.splitTextToSize(issue.name||'—',cw-20);
-    const detailLines=doc.splitTextToSize(issue.detail||'',cw-8);
-    const recLines=issue.rec?doc.splitTextToSize('Recommendation: '+issue.rec,cw-12):[];
-    const cardH=6+nameLines.length*5+4+detailLines.length*4.5+(recLines.length>0?recLines.length*4.5+8:0)+8;
-    checkSpace(cardH+4);
-    if(y===24&&idx>0) addPageHeader();
-
-    // Card background
-    const[br,bg,bb]=hexToRgb(sevBg);
-    doc.setFillColor(br,bg,bb); doc.roundedRect(ml,y-4,cw,cardH,2,2,'F');
-    // Left accent bar
-    const[ar,ag,ab]=hexToRgb(sevColor); doc.setFillColor(ar,ag,ab);
-    doc.rect(ml,y-4,3,cardH,'F');
-
-    // Severity pill
-    doc.setFillColor(ar,ag,ab); doc.roundedRect(ml+6,y-2,18,5,1,1,'F');
-    setTextColor('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
-    doc.text(sevLabel,ml+15,y+1.5,{align:'center'});
-
-    // Module label
-    setTextColor('#888888'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    doc.text(`${module}${isDemo?' · demo':''}`,ml+27,y+1.5);
-    y+=7;
-
-    // Rule name
-    setTextColor('#1a0d2e'); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-    doc.text(nameLines,ml+6,y); y+=nameLines.length*5+3;
-
-    // Detail
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); setTextColor('#444444');
-    doc.text(detailLines,ml+6,y); y+=detailLines.length*4.5+2;
-
-    // Recommendation
-    if(recLines.length>0){
-      y+=2;
-      setFill('#e8f5e9'); doc.setFillColor(232,245,233);
-      doc.roundedRect(ml+6,y-3,cw-10,recLines.length*4.5+6,1.5,1.5,'F');
-      setTextColor('#2e7d32'); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-      doc.text('→',ml+9,y+0.5);
-      doc.setFont('helvetica','italic');
-      doc.text(recLines,ml+14,y); 
-      y+=recLines.length*4.5+4;
-    }
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); text('#1a0d2e');
+      doc.text(label.length>22?label.slice(0,21)+'…':label,ml+2,y);
+      doc.setFont('helvetica','normal');
+      const[dr,dg,db]=rgb(isDemo?'#e65100':'#2e7d32');
+      doc.setTextColor(dr,dg,db); doc.text(isDemo?'Demo':'Real',ml+72,y);
+      const[sr,sg,sb]=rgb(sc); doc.setTextColor(sr,sg,sb);
+      doc.setFont('helvetica','bold'); doc.text(String(score),ml+94,y);
+      doc.setFont('helvetica','normal');
+      text(crit>0?'#c62828':'#666'); doc.text(String(crit),ml+112,y);
+      text(warn>0?'#e65100':'#666'); doc.text(String(warn),ml+130,y);
+      text('#333'); doc.text(String(tot),ml+152,y);
+      y+=7;
+    });
     y+=8;
-  });
 
-  // ── FOOTER on last page ───────────────────────────────────────────────────
-  checkSpace(20);
-  setDrawColor('#e0e0e0'); doc.setLineWidth(0.3); doc.line(ml,y,ml+cw,y); y+=6;
-  setTextColor('#aaaaaa'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-  doc.text(`Security Platform Auditor  ·  ${p.name}  ·  ${now}`,W/2,y,{align:'center'});
+    // ── FINDINGS PAGES ───────────────────────────────────────────────────────
+    let lastSev='';
+    allFindings.forEach(({module,isDemo,issue})=>{
+      const sev=issue.sev||'info';
+      const sc=sevColor(sev);
+      const sl=sevLabel(sev);
 
-  doc.save(`${pid}-recommendations-${new Date().toISOString().slice(0,10)}.pdf`);
+      if(sev!==lastSev){
+        doc.addPage(); addHdr(); y=20;
+        const secTitles={critical:'Critical Findings — Immediate Action Required',
+          warning:'Warnings — Address in Near Term',info:'Informational — For Review'};
+        const[sr,sg,sb]=rgb(sc);
+        doc.setFillColor(sr,sg,sb); doc.rect(ml,y-3,cw,9,'F');
+        text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        doc.text(secTitles[sev],ml+3,y+3); y+=14;
+        lastSev=sev;
+      }
+
+      // Estimate height
+      const nameL=doc.splitTextToSize(issue.name||'—',cw-24);
+      const detL=doc.splitTextToSize(issue.detail||'',cw-8);
+      const recL=issue.rec?doc.splitTextToSize(issue.rec,cw-16):[];
+      const cardH=5+nameL.length*5+3+detL.length*4.5+(recL.length?recL.length*4.5+10:0)+8;
+      checkY(cardH+4);
+
+      // Card bg based on severity
+      const bgHex=sev==='critical'?'#fff5f5':sev==='warning'?'#fff8f0':'#f0f4ff';
+      const[br,bg2,bb]=rgb(bgHex); doc.setFillColor(br,bg2,bb);
+      doc.roundedRect(ml,y-3,cw,cardH,2,2,'F');
+      // Left bar
+      const[ar,ag,ab]=rgb(sc); doc.setFillColor(ar,ag,ab);
+      doc.rect(ml,y-3,3,cardH,'F');
+
+      // Sev pill
+      doc.setFillColor(ar,ag,ab); doc.roundedRect(ml+5,y-1,16,4.5,1,1,'F');
+      text('#ffffff'); doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.text(sl,ml+13,y+2,{align:'center'});
+
+      // Module
+      text('#888888'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      doc.text(`${module}${isDemo?' · demo':''}`,ml+24,y+2);
+      y+=6;
+
+      // Name
+      text('#1a0d2e'); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+      doc.text(nameL,ml+5,y); y+=nameL.length*5+2;
+
+      // Detail
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); text('#444444');
+      doc.text(detL,ml+5,y); y+=detL.length*4.5+2;
+
+      // Recommendation
+      if(recL.length){
+        y+=2;
+        doc.setFillColor(232,245,233);
+        doc.roundedRect(ml+5,y-2,cw-10,recL.length*4.5+5,1,1,'F');
+        text('#2e7d32'); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        doc.text('RECOMMENDATION',ml+8,y+1.5);
+        doc.setFont('helvetica','italic'); doc.setFontSize(8);
+        doc.text(recL,ml+8,y+6); y+=recL.length*4.5+5;
+      }
+      y+=8;
+    });
+
+    // Footer
+    checkY(12);
+    draw('#dddddd'); doc.setLineWidth(0.3); doc.line(ml,y,ml+cw,y); y+=5;
+    text('#aaaaaa'); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    doc.text(`Security Platform Auditor  ·  ${p.name}  ·  ${now}`,W/2,y,{align:'center'});
+
+    doc.save(`${pid}-recommendations-${new Date().toISOString().slice(0,10)}.pdf`);
+
+  } catch(err) {
+    console.error('PDF generation error:', err);
+    alert('PDF error: ' + err.message);
+  }
 }
 </script>
 </head>
