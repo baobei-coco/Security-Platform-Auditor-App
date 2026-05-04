@@ -2297,12 +2297,7 @@ pp:{
           rec:'Disable or remove test rules from production, or rename if fully approved for production use.'});
       });
 
-      // Coverage gaps — only flag apps not covered across ALL stored pp modules
-      const allStoredKeys=Object.keys(JSON.parse(localStorage.getItem(lsKey(pid))||'{}'));
-      const allStoredRules=allStoredKeys.flatMap(k=>{
-        try{return JSON.parse(localStorage.getItem(lsKey(pid)))||{};}catch(e){return[];}
-      });
-      // Simpler: check the raw rules array for app coverage across all categories
+      // Coverage gaps — check apps covered in the rules passed to this module
       const allActiveApps=new Set(rules.filter(r=>r.isActive!==false).flatMap(r=>(r.applications||[]).map(a=>(a.name||'').toLowerCase())));
       ['github','zoom','box','dropbox','slack','salesforce'].forEach(a=>{
         if(![...allActiveApps].some(c=>c.includes(a)))
