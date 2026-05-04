@@ -2287,10 +2287,11 @@ pp:{
         const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
         return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
           severity:(r.severity||'').toUpperCase(),category:r.category||'',
-          appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags:(r.tags||[])};
+          appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags:(r.tags||[]),
+          isTest:/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s:-])/i.test(r.name||'')};
       };
       const norm=rules.map(r=>_norm(r));
-      const issues={noRemediation:[],noNotification:[],disabled:[],dupPriority:[],testRules:[],coverage:[]};
+      const issues={noRemediation:[],noNotification:[],disabled:[],dupPriority:[],testRules:[],coverage:[],dupEffort:[]};
 
       // Disabled rules
       norm.filter(r=>!r.isActive).forEach(r=>{
@@ -2359,7 +2360,93 @@ pp:{
             rec:`Verify whether ${a} is in scope. If monitored, ensure relevant rules exist in the appropriate module.`});
       });
 
-      return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:2,coverage:1}),rules,'rules');
+      // ── DUPLICATION DETECTION ────────────────────────────────────────────────
+      // Normalize name to get detection concept (strip app prefix, tier suffix)
+      const _normConcept=name=>{
+        let n=name.replace(/^(O365|GWS|GSUITE|GIT|ZOOM|BOX|DROPBOX|SLACK)\//i,'');
+        n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING|TEST)[-_\s]*$/i,'');
+        n=n.replace(/\s*[\/-]\s*(Definite|Probable)$/i,'');
+        n=n.replace(/\s*\((?:high|medium|low|critical)[^)]*\)\s*$/i,'');
+        return n.trim().toLowerCase();
+      };
+
+      // 1. Config inconsistency within O365/GWS pairs
+      const byConceptAll={};
+      norm.filter(r=>r.isActive&&!r.isTest).forEach(r=>{
+        const concept=_normConcept(r.name);
+        if(!byConceptAll[concept])byConceptAll[concept]=[];
+        byConceptAll[concept].push(r);
+      });
+
+      Object.entries(byConceptAll).forEach(([concept,rs])=>{
+        if(rs.length<2) return;
+        const notifs=new Set(rs.map(r=>r.hasNotification));
+        const rems=new Set(rs.map(r=>r.hasRemediation));
+        const sevs=new Set(rs.map(r=>r.severity));
+        const msgs=[];
+        if(notifs.size>1) msgs.push('notification configured on some app variants but not others');
+        if(rems.size>1) msgs.push('remediation configured on some app variants but not others');
+        if(msgs.length>0){
+          const ruleNames=rs.map(r=>r.name).join(', ');
+          issues.dupEffort.push({sev:'warning',
+            name:`Config mismatch: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`Rules for the same detection have inconsistent configuration across apps: ${msgs.join('; ')}. Rules: ${ruleNames}`,
+            tags:[{v:'CONFIG MISMATCH',c:'y'},{v:`${rs.length} rules`}],
+            rec:'Ensure all app variants of the same detection have identical notification and remediation configuration.'});
+        }
+      });
+
+      // 2. Tier stacks where lower tiers are completely silent
+      const byBaseConcept={};
+      norm.filter(r=>r.isActive&&!r.isTest).forEach(r=>{
+        let base=r.name.replace(/^(O365|GWS|GSUITE)\//i,'');
+        base=base.replace(/\s*[\/-]\s*(Definite|Probable|High|Medium|Low|Critical).*$/i,'');
+        base=base.replace(/\s*\([^)]*\)\s*$/,'').trim().toLowerCase();
+        if(!byBaseConcept[base])byBaseConcept[base]=[];
+        byBaseConcept[base].push(r);
+      });
+
+      Object.entries(byBaseConcept).forEach(([base,rs])=>{
+        // Unique app+concept combos to find per-app stacks
+        const byApp={};
+        rs.forEach(r=>{
+          const app=r.appNames.toLowerCase();
+          if(!byApp[app])byApp[app]=[];
+          byApp[app].push(r);
+        });
+        Object.entries(byApp).forEach(([app,appRules])=>{
+          if(appRules.length<2) return;
+          const hasHighNotif=appRules.some(r=>['CRITICAL','HIGH'].includes(r.severity)&&r.hasNotification);
+          const silentLow=appRules.filter(r=>['MEDIUM','LOW'].includes(r.severity)&&!r.hasNotification&&!r.hasRemediation);
+          if(hasHighNotif&&silentLow.length>0){
+            const silentNames=silentLow.map(r=>r.name).join(', ');
+            issues.dupEffort.push({sev:'info',
+              name:`Silent lower tiers: ${base.slice(0,45)}`,
+              detail:`Higher-severity tiers have notifications but lower tiers (${silentLow.map(r=>r.severity).join('/')}) fire silently: ${silentNames}`,
+              tags:[{v:'SILENT LOWER TIER',c:'b'},{v:app}],
+              rec:`Consider whether the lower-severity tier rules add value if they generate no alerts and take no action. Consolidate or add notifications to make them useful.`});
+          }
+        });
+      });
+
+      // 3. TAMU-specific variants alongside standard rules
+      const tamuRules=norm.filter(r=>r.isActive&&(r.name.includes('TAMUResearch')||r.name.includes('ResearchWords')||r.name.toLowerCase().includes('tamu')));
+      if(tamuRules.length>0){
+        // Check if standard versions of these rules also exist
+        const tamuWithStandard=tamuRules.filter(r=>{
+          const stdName=r.name.replace(/-TAMUResearchWords?/i,'').replace(/ResearchWords?/i,'Sensitive Data').replace(/ExternalShare_TAMUResearchTerms_Weighted/i,'External Shared File with Sensitive Info').trim();
+          return norm.some(s=>s.isActive&&!s.isTest&&s.name!==r.name&&_normConcept(s.name)===_normConcept(stdName));
+        });
+        if(tamuWithStandard.length>0){
+          issues.dupEffort.push({sev:'info',
+            name:`${tamuWithStandard.length} TAMU-specific rules overlap standard detections`,
+            detail:`TAMU-specific classifier variants (TAMUResearchWords, ResearchWordsExternalShare) run alongside standard detection rules covering the same activity types. Both fire on the same events with different classifiers: ${tamuWithStandard.map(r=>r.name).join(', ')}`,
+            tags:[{v:'TAMU VARIANT',c:'b'},{v:`${tamuWithStandard.length} rules`}],
+            rec:'Review whether TAMU-specific classifiers are capturing events the standard rules miss. If standard rules already cover these scenarios, consider consolidating the TAMU-specific rules to reduce noise.'});
+        }
+      }
+
+      return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:2,coverage:1,dupEffort:3}),rules,'rules');
     },
     render(pid,mid,result){
       const _norm=r=>{
@@ -2379,14 +2466,16 @@ pp:{
       const withRem=norm.filter(r=>r.isActive&&r.hasRemediation).length;
       const withNotif=norm.filter(r=>r.isActive&&r.hasNotification).length;
       const critical=norm.filter(r=>r.severity==='CRITICAL').length;
+      const dupCount=(result.issues.dupEffort||[]).length;
       wrapRender(pid,mid,result,'All access rules — suspicious login, VAP account takeover, risk group, TOR login',
         [{n:norm.length,l:'Total Rules',c:'blue'},
          {n:active,l:'Active',c:'green'},
          {n:critical,l:'Critical Sev',c:'red',link:`${pid}-${mid}-nr`},
-         {n:norm.length-withRem,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
-         {n:norm.length-withNotif,l:'No Notification',c:'yellow',link:`${pid}-${mid}-nn`}],
-        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Active rules that only alert — no automated response',issues:result.issues.noRemediation},
-         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'No Notifications',desc:'Rules that fire silently with no alert templates',issues:result.issues.noNotification},
+         {n:result.issues.noRemediation.length,l:'No Remediation',c:'red',link:`${pid}-${mid}-nr`},
+         {n:dupCount,l:'Duplication',c:dupCount>0?'yellow':'green',link:`${pid}-${mid}-de`}],
+        [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation / Alert-Only',desc:'HIGH/CRITICAL rules with no automated response',issues:result.issues.noRemediation},
+         {id:`${pid}-${mid}-nn`,icon:'⚡',title:'No Notifications',desc:'Rules that have remediation but no alert templates',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Duplication of Effort',desc:'Config mismatches between O365/GWS pairs, silent lower tiers, TAMU-specific overlaps',issues:result.issues.dupEffort||[]},
          {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Rules sharing the same priority — unpredictable ordering',issues:result.issues.dupPriority},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test or staging rules still enabled in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules — confirm intentional or remove',issues:result.issues.disabled},
