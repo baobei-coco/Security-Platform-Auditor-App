@@ -2226,7 +2226,8 @@ pp:{
       const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
       const hasRemediation=remActions.length>0;
       const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
-      const hasNotification=notifTemplates.length>0||(r.notifications?.admin!=null)||(r.notifications?.endUser!=null);
+      // For CASB rules, platform templates are the primary notification mechanism
+        const hasNotification=notifTemplates.length>0;
       const tags=(r.tags||[]);
       const isActive=r.isActive!==undefined?r.isActive:r.enabled!==false;
       return {id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,severity:(r.severity||'').toUpperCase(),category:r.category||'',appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags};
@@ -2237,7 +2238,8 @@ pp:{
         const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
         const hasRemediation=remActions.length>0;
         const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
-        const hasNotification=notifTemplates.length>0||(r.notifications?.admin!=null)||(r.notifications?.endUser!=null);
+        // For CASB rules, platform templates are the primary notification mechanism
+        const hasNotification=notifTemplates.length>0;
         const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
         return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
           severity:(r.severity||'').toUpperCase(),category:r.category||'',
@@ -2256,24 +2258,22 @@ pp:{
           rec:'Re-enable if still required, or delete to reduce clutter.'});
       });
 
-      // Active rules with no remediation actions
-      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
+      // Active HIGH/CRITICAL rules with no remediation — LOW/MEDIUM alert-only is often intentional
+      norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')).forEach(r=>{
         const appTags=r.appNames?[{v:r.appNames,c:''}]:[];
-        const sevTag=r.severity?[{v:r.severity,c:r.severity==='CRITICAL'?'r':r.severity==='HIGH'?'r':r.severity==='MEDIUM'?'y':'b'}]:[];
-        issues.noRemediation.push({sev:r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning',
+        issues.noRemediation.push({sev:r.severity==='CRITICAL'?'critical':'warning',
           name:r.name,
-          detail:`Active rule with no remediation actions — alert-only or misconfigured. Apps: ${r.appNames}`,
-          tags:[{v:'NO REMEDIATION',c:'y'},...sevTag,...appTags],
-          rec:'Add remediation actions (e.g. Revoke Session, Suspend User) or confirm alert-only is intentional.'});
+          detail:`${r.severity} severity rule has no automated remediation — fires alert only. Apps: ${r.appNames}`,
+          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'},...appTags],
+          rec:'Add remediation (e.g. Revoke Session, Suspend User) for high-severity threats to reduce response time.'});
       });
 
-      // Active rules with no notifications
-      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
-        const sevTag=r.severity?[{v:r.severity,c:r.severity==='CRITICAL'?'r':r.severity==='HIGH'?'r':r.severity==='MEDIUM'?'y':'b'}]:[];
+      // Active HIGH/CRITICAL rules with no notifications
+      norm.filter(r=>r.isActive&&!r.hasNotification&&(r.severity==='CRITICAL'||r.severity==='HIGH')).forEach(r=>{
         issues.noNotification.push({sev:'warning',name:r.name,
-          detail:`No notification templates configured — rule fires silently. Apps: ${r.appNames}`,
-          tags:[{v:'SILENT',c:'y'},...sevTag],
-          rec:'Add platform notification templates so alerts reach the security team.'});
+          detail:`${r.severity} severity rule has no notification templates — fires silently. Apps: ${r.appNames}`,
+          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'}],
+          rec:'Add platform notification templates so high-severity alerts reach the security team in real time.'});
       });
 
       // Duplicate priority values (potential shadowing)
@@ -2289,22 +2289,27 @@ pp:{
           rec:'Assign unique priorities to ensure predictable rule evaluation order.'}));
       });
 
-      // Test/staging rules still active
-      norm.filter(r=>r.isActive&&/test|testing|staging|temp|draft/i.test(r.name)).forEach(r=>{
+      // Test/staging rules — require word boundary to avoid false matches like "attempt", "latest"
+      norm.filter(r=>r.isActive&&/(?:^|[\/\s:_-])(test(?:ing)?|tst|poc|staging|draft|temp)(?:$|[\s:\/\s_-])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
-          detail:`Rule name suggests it is a test or staging rule but is currently active. Apps: ${r.appNames}`,
+          detail:`Rule name indicates test or staging status but is active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
-          rec:'Disable or remove test rules from production, or rename if fully approved.'});
+          rec:'Disable or remove test rules from production, or rename if fully approved for production use.'});
       });
 
-      // Coverage gaps — apps with no active rules
-      const coveredApps=new Set(norm.filter(r=>r.isActive).map(r=>r.appNames.toLowerCase()));
+      // Coverage gaps — only flag apps not covered across ALL stored pp modules
+      const allStoredKeys=Object.keys(JSON.parse(localStorage.getItem(lsKey(pid))||'{}'));
+      const allStoredRules=allStoredKeys.flatMap(k=>{
+        try{return JSON.parse(localStorage.getItem(lsKey(pid)))||{};}catch(e){return[];}
+      });
+      // Simpler: check the raw rules array for app coverage across all categories
+      const allActiveApps=new Set(rules.filter(r=>r.isActive!==false).flatMap(r=>(r.applications||[]).map(a=>(a.name||'').toLowerCase())));
       ['github','zoom','box','dropbox','slack','salesforce'].forEach(a=>{
-        if(![...coveredApps].some(c=>c.includes(a)))
+        if(![...allActiveApps].some(c=>c.includes(a)))
           issues.coverage.push({sev:'info',name:`No active rules: ${a}`,
-            detail:`No active CASB rules found covering ${a}.`,
-            tags:[{v:'GAP',c:'b'},{v:a}],
-            rec:`Review whether ${a} is in scope and add rules if needed.`});
+            detail:`No active rules found for ${a} in this export. ${a==='github'||a==='zoom'?'Note: check other modules (DLP/DSW) if this app is covered there.':''}`,
+            tags:[{v:'COVERAGE GAP',c:'b'},{v:a}],
+            rec:`Verify whether ${a} is in scope. If monitored, ensure relevant rules exist in the appropriate module.`});
       });
 
       return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:6,coverage:3}),rules,'rules');
@@ -2315,7 +2320,8 @@ pp:{
         const remActions=Object.values(r.remediationActions||{}).flat().map(a=>a.name||a);
         const hasRemediation=remActions.length>0;
         const notifTemplates=((r.notifications?.platform?.templates)||[]).map(t=>t.name||t);
-        const hasNotification=notifTemplates.length>0||(r.notifications?.admin!=null)||(r.notifications?.endUser!=null);
+        // For CASB rules, platform templates are the primary notification mechanism
+        const hasNotification=notifTemplates.length>0;
         const isActive=r.isActive!==undefined?r.isActive:(r.enabled!==false);
         return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
           severity:(r.severity||'').toUpperCase(),category:r.category||'',
@@ -2480,7 +2486,7 @@ pp:{
       });
 
       // Test rules still active
-      norm.filter(r=>r.isActive&&/test|testing|staging|temp|draft/i.test(r.name)).forEach(r=>{
+      norm.filter(r=>r.isActive&&/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING|TEMP|DRAFT)(?:$|[\/_:\s-:])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
           detail:`Test/staging DLP rule still active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
@@ -2705,7 +2711,7 @@ pp:{
           detail:`Rule inactive. Apps: ${r.appNames}`,
           tags:[{v:'INACTIVE',c:'y'}],rec:'Re-enable or delete.'});
       });
-      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+      norm.filter(r=>r.isActive&&/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
@@ -2773,7 +2779,7 @@ pp:{
           tags:[{v:'INACTIVE',c:'y'},{v:r.appNames}],
           rec:'Re-enable or delete.'});
       });
-      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+      norm.filter(r=>r.isActive&&/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
@@ -2837,7 +2843,7 @@ pp:{
           detail:`Rule inactive. Apps: ${r.appNames}`,
           tags:[{v:'INACTIVE',c:'r'}],rec:'Re-enable or delete.'});
       });
-      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+      norm.filter(r=>r.isActive&&/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
@@ -2902,7 +2908,7 @@ pp:{
           detail:`VAP rule inactive. Apps: ${r.appNames}`,
           tags:[{v:'INACTIVE',c:'y'}],rec:'Re-enable or delete.'});
       });
-      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+      norm.filter(r=>r.isActive&&/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
@@ -3021,7 +3027,7 @@ pp:{
           detail:`App governance rule inactive. Apps: ${r.appNames}`,
           tags:[{v:'INACTIVE',c:'y'},{v:r.appNames}],rec:'Re-enable or delete.'});
       });
-      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+      norm.filter(r=>r.isActive&&/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
@@ -3087,7 +3093,7 @@ pp:{
           detail:`Security posture rule inactive. Apps: ${r.appNames}`,
           tags:[{v:'INACTIVE',c:'y'},{v:r.appNames}],rec:'Re-enable or delete.'});
       });
-      norm.filter(r=>r.isActive&&/test|testing|staging/i.test(r.name)).forEach(r=>{
+      norm.filter(r=>r.isActive&&/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name)).forEach(r=>{
         issues.testRules.push({sev:'warning',name:r.name,
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
