@@ -2409,18 +2409,26 @@ pp:{
       const norm=rules.map(r=>_norm(r));
       const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[],dupPriority:[]};
 
-      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
-        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
-        issues.noRemediation.push({sev,name:r.name,
-          detail:`Mail security rule fires with no automated response. Apps: ${r.appNames}. Activity: ${r.activities||r.threats||'—'}`,
-          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
-          rec:'Add remediation (Revoke Session, Disable Mailbox Rule) for high-severity mail threats.'});
+      const _isMailTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
+      norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isMailTest(r)).forEach(r=>{
+        const ctx=r.activities||r.threats||'—';
+        if(!r.hasNotification){
+          issues.noRemediation.push({sev:'critical',name:r.name,
+            detail:`Mail rule is completely silent — no remediation and no notification. Apps: ${r.appNames}. Activity: ${ctx}`,
+            tags:[{v:'SILENT + NO REMEDIATION',c:'r'},{v:r.severity,c:'r'},{v:r.appNames}],
+            rec:'Add both a notification template and remediation (Revoke Session, Disable Mailbox Rule) — this rule generates no alert and takes no action.'});
+        } else {
+          issues.noRemediation.push({sev:'warning',name:r.name,
+            detail:`Alert-only mail rule — notification configured but no automated remediation. Apps: ${r.appNames}. Activity: ${ctx}`,
+            tags:[{v:'ALERT-ONLY',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'},{v:'✓ Notified',c:'g'},{v:r.appNames}],
+            rec:'Consider adding remediation (Revoke Session, Disable Mailbox Rule) to reduce response time.'});
+        }
       });
-      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+      norm.filter(r=>r.isActive&&!r.hasNotification&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isMailTest(r)&&r.hasRemediation).forEach(r=>{
         issues.noNotification.push({sev:'warning',name:r.name,
-          detail:`Rule fires silently — no notification templates. Apps: ${r.appNames}`,
-          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
-          rec:'Add platform notification so mail threats alert the security team.'});
+          detail:`Mail rule has remediation but no notification. Apps: ${r.appNames}`,
+          tags:[{v:'NO NOTIFICATION',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'}],
+          rec:'Add platform notification templates so mail threats alert the security team.'});
       });
       norm.filter(r=>!r.isActive).forEach(r=>{
         issues.inactive.push({sev:'warning',name:r.name,
@@ -2484,22 +2492,25 @@ pp:{
       const issues={noRemediation:[],noNotification:[],inactive:[],dupPriority:[],testRules:[]};
 
       // Active rules with no remediation
-      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
-        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
-        const sevTag=r.severity?[{v:r.severity,c:sev==='critical'?'r':'y'}]:[];
-        issues.noRemediation.push({sev,name:r.name,
-          detail:`Alert-only DLP rule — no automated response. Apps: ${r.appNames}. Activity: ${r.activities||'—'}`,
-          tags:[{v:'NO REMEDIATION',c:'y'},...sevTag,{v:r.appNames}],
-          rec:'Add remediation action (e.g. Block Download, Revoke Share) or confirm alert-only is intentional.'});
+      const _isDlpTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
+      norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isDlpTest(r)).forEach(r=>{
+        if(!r.hasNotification){
+          issues.noRemediation.push({sev:'critical',name:r.name,
+            detail:`DLP rule is completely silent — no remediation and no notification. Apps: ${r.appNames}. Activity: ${r.activities||'—'}`,
+            tags:[{v:'SILENT + NO REMEDIATION',c:'r'},{v:r.severity,c:'r'},{v:r.appNames}],
+            rec:'Add both a notification template and remediation (Block Download, Revoke Share) — this rule generates no alert and takes no action.'});
+        } else {
+          issues.noRemediation.push({sev:'warning',name:r.name,
+            detail:`Alert-only DLP rule — notification configured but no automated remediation. Apps: ${r.appNames}. Activity: ${r.activities||'—'}`,
+            tags:[{v:'ALERT-ONLY',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'},{v:'✓ Notified',c:'g'},{v:r.appNames}],
+            rec:'Consider adding automated remediation (Block Download, Revoke Share). Alert-only is acceptable if manual triage SLAs are met.'});
+        }
       });
-
-      // Active rules with no notifications
-      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
-        const sevTag=r.severity?[{v:r.severity,c:r.severity==='CRITICAL'||r.severity==='HIGH'?'r':'y'}]:[];
+      norm.filter(r=>r.isActive&&!r.hasNotification&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isDlpTest(r)&&r.hasRemediation).forEach(r=>{
         issues.noNotification.push({sev:'warning',name:r.name,
-          detail:`DLP rule fires silently — no notification templates. Apps: ${r.appNames}`,
-          tags:[{v:'SILENT',c:'y'},...sevTag],
-          rec:'Add platform notification template so DLP alerts reach the security team.'});
+          detail:`DLP rule has remediation but no notification. Apps: ${r.appNames}`,
+          tags:[{v:'NO NOTIFICATION',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'}],
+          rec:'Add platform notification templates so DLP events alert the security team.'});
       });
 
       // Inactive rules
@@ -2616,20 +2627,22 @@ pp:{
           rec:'Consider adding a notification or escalating to block/prompt for high-severity endpoint threats.'});
       });
 
-      // Test/PoC rules with high iver (heavily modified = actively being used)
-      norm.filter(r=>r.isTestRule&&r.iver>5).forEach(r=>{
+      // All test/PoC/on-demand rules flagged — regardless of iver count
+      norm.filter(r=>r.isTestRule).forEach(r=>{
+        const usageHint=r.iver>10?` Modified ${r.iver} times — appears actively used.`:'';
         issues.testInProd.push({sev:'warning',name:r.name,
-          detail:`Test/PoC rule modified ${r.iver} times — likely being used in production without proper naming. Actions: ${r.actionTypes.join(', ')}`,
-          tags:[{v:'TEST IN PROD',c:'y'},{v:`iver=${r.iver}`,c:'y'}],
-          rec:'Rename to production convention (Endpoint/Detect/...) or remove if no longer needed.'});
+          detail:`Test/PoC rule active in production. Actions: ${r.actionTypes.join(', ')}.${usageHint}`,
+          tags:[{v:'TEST/POC',c:'y'},{v:`iver=${r.iver}`,c:'b'}],
+          rec:'Promote to production naming (Endpoint/Detect/...), disable when not in active use, or remove if no longer needed.'});
       });
 
       // Rules with no severity (prevention/block/prompt with no incident action)
-      norm.filter(r=>!r.hasIncident&&!r.isTestRule&&!r.isOnDemand).forEach(r=>{
+      // noSeverity: exclude test rules AND on-demand rules (intentionally no incident)
+      norm.filter(r=>!r.hasIncident&&!r.isTestRule&&!r.isOnDemand&&!r.name.toLowerCase().includes('on-demand')).forEach(r=>{
         issues.noSeverity.push({sev:'warning',name:r.name,
-          detail:`Rule has no incident/severity — events won't appear in incident queue. Actions: ${r.actionTypes.join(', ')}`,
+          detail:`Rule has no incident/severity tracking — events won't appear in the incident queue. Actions: ${r.actionTypes.join(', ')}`,
           tags:[{v:'NO SEVERITY',c:'y'},{v:r.actionTypes.join('/')}],
-          rec:'Add an incident action with appropriate severity so events are tracked and triaged.'});
+          rec:'Add an incident action with appropriate severity so events are tracked and visible in the incident queue.'});
       });
 
       // On-demand rules that are heavily modified (may be stuck on)
@@ -2798,19 +2811,26 @@ pp:{
       const norm=rules.map(r=>_norm(r));
       const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
 
-      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
-        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
+      const _isDswTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
+      norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isDswTest(r)).forEach(r=>{
         const actStr=r.activities||r.threats||'—';
-        issues.noRemediation.push({sev,name:r.name,
-          detail:`Suspicious/anomalous activity rule with no automated response. Apps: ${r.appNames}. Type: ${actStr}`,
-          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
-          rec:'Add remediation (Revoke Session, Block Download) for suspicious file and anomalous activity rules.'});
+        if(!r.hasNotification){
+          issues.noRemediation.push({sev:'critical',name:r.name,
+            detail:`Suspicious activity rule is completely silent — no remediation and no notification. Apps: ${r.appNames}. Type: ${actStr}`,
+            tags:[{v:'SILENT + NO REMEDIATION',c:'r'},{v:r.severity,c:'r'},{v:r.appNames}],
+            rec:'Add both notification and remediation (Revoke Session, Block Download) — this rule generates no alert and takes no action.'});
+        } else {
+          issues.noRemediation.push({sev:'warning',name:r.name,
+            detail:`Alert-only suspicious activity rule — notification configured but no automated response. Apps: ${r.appNames}. Type: ${actStr}`,
+            tags:[{v:'ALERT-ONLY',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'},{v:'✓ Notified',c:'g'},{v:r.appNames}],
+            rec:'Consider adding remediation (Revoke Session, Block Download) for suspicious file and anomalous activity rules.'});
+        }
       });
-      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+      norm.filter(r=>r.isActive&&!r.hasNotification&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isDswTest(r)&&r.hasRemediation).forEach(r=>{
         issues.noNotification.push({sev:'warning',name:r.name,
-          detail:`Rule fires silently. Apps: ${r.appNames}. Type: ${r.activities||r.threats||'—'}`,
-          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
-          rec:'Add platform notification template to alert security team.'});
+          detail:`Rule has remediation but no notification. Apps: ${r.appNames}`,
+          tags:[{v:'NO NOTIFICATION',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'}],
+          rec:'Add platform notification templates so suspicious activity events alert the security team.'});
       });
       norm.filter(r=>!r.isActive).forEach(r=>{
         issues.inactive.push({sev:'warning',name:r.name,
@@ -3048,17 +3068,24 @@ pp:{
       const norm=rules.map(r=>_norm(r));
       const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
 
-      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
-        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
-        issues.noRemediation.push({sev,name:r.name,
-          detail:`App governance rule with no automated response — risky 3rd-party apps go unblocked. Apps: ${r.appNames}`,
-          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
-          rec:'Add remediation to revoke or block unauthorized third-party app authorizations.'});
+      const _isAppTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
+      norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isAppTest(r)).forEach(r=>{
+        if(!r.hasNotification){
+          issues.noRemediation.push({sev:'critical',name:r.name,
+            detail:`App governance rule is completely silent — no remediation and no notification. Apps: ${r.appNames}`,
+            tags:[{v:'SILENT + NO REMEDIATION',c:'r'},{v:r.severity,c:'r'},{v:r.appNames}],
+            rec:'Add both notification and remediation (Revoke Authorization) — risky app authorizations currently generate no alert and take no action.'});
+        } else {
+          issues.noRemediation.push({sev:'warning',name:r.name,
+            detail:`Alert-only app governance rule — notification configured but no automated revocation. Apps: ${r.appNames}`,
+            tags:[{v:'ALERT-ONLY',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'},{v:'✓ Notified',c:'g'},{v:r.appNames}],
+            rec:'Consider adding remediation to revoke or block unauthorized third-party app authorizations.'});
+        }
       });
-      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+      norm.filter(r=>r.isActive&&!r.hasNotification&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isAppTest(r)&&r.hasRemediation).forEach(r=>{
         issues.noNotification.push({sev:'warning',name:r.name,
-          detail:`App governance rule fires silently. Apps: ${r.appNames}`,
-          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
+          detail:`App governance rule has remediation but no notification. Apps: ${r.appNames}`,
+          tags:[{v:'NO NOTIFICATION',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'}],
           rec:'Add platform notification so app authorization events alert the security team.'});
       });
       norm.filter(r=>!r.isActive).forEach(r=>{
@@ -3114,18 +3141,26 @@ pp:{
       const norm=rules.map(r=>_norm(r));
       const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
 
-      norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
-        const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
-        issues.noRemediation.push({sev,name:r.name,
-          detail:`Security posture rule with no automated response. Apps: ${r.appNames}. Activity: ${r.activities||r.threats||'—'}`,
-          tags:[{v:'NO REMEDIATION',c:'y'},{v:r.severity,c:sev==='critical'?'r':'y'},{v:r.appNames}],
-          rec:'Add remediation (Revoke Session) to enforce response to admin setting changes.'});
+      const _isPosTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
+      norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isPosTest(r)).forEach(r=>{
+        const ctx=r.activities||r.threats||'—';
+        if(!r.hasNotification){
+          issues.noRemediation.push({sev:'critical',name:r.name,
+            detail:`Security posture rule is completely silent — no remediation and no notification. Apps: ${r.appNames}. Activity: ${ctx}`,
+            tags:[{v:'SILENT + NO REMEDIATION',c:'r'},{v:r.severity,c:'r'},{v:r.appNames}],
+            rec:'Add both notification and remediation (Revoke Session) — this rule generates no alert and takes no action.'});
+        } else {
+          issues.noRemediation.push({sev:'warning',name:r.name,
+            detail:`Alert-only posture rule — notification configured but no automated response. Apps: ${r.appNames}. Activity: ${ctx}`,
+            tags:[{v:'ALERT-ONLY',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'},{v:'✓ Notified',c:'g'},{v:r.appNames}],
+            rec:'Consider adding remediation (Revoke Session) to enforce response to admin setting changes.'});
+        }
       });
-      norm.filter(r=>r.isActive&&!r.hasNotification).forEach(r=>{
+      norm.filter(r=>r.isActive&&!r.hasNotification&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isPosTest(r)&&r.hasRemediation).forEach(r=>{
         issues.noNotification.push({sev:'warning',name:r.name,
-          detail:`Security posture rule fires silently. Apps: ${r.appNames}`,
-          tags:[{v:'SILENT',c:'y'},{v:r.severity,c:'b'}],
-          rec:'Add platform notification so configuration changes alert the security team.'});
+          detail:`Posture rule has remediation but no notification. Apps: ${r.appNames}`,
+          tags:[{v:'NO NOTIFICATION',c:'y'},{v:r.severity,c:r.severity==='CRITICAL'?'r':'y'}],
+          rec:'Add platform notification so configuration change events alert the security team.'});
       });
       norm.filter(r=>!r.isActive).forEach(r=>{
         issues.inactive.push({sev:'warning',name:r.name,
