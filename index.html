@@ -265,6 +265,13 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);
   border-radius:7px;font-size:12px;color:#22c55e;font-weight:600;margin:0 0 6px;}
 .stored-bar.visible{display:flex;}
+
+.ack-btn{margin-left:8px;flex-shrink:0;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.ack-btn:hover{border-color:var(--accent);color:var(--accent);}
+.ack-btn.acked{background:rgba(76,175,80,.12);border-color:#4caf50;color:#4caf50;}
+.issue-row.acknowledged{opacity:.4;filter:grayscale(.5);}
+.ack-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.2);border-radius:6px;margin-bottom:8px;font-size:12px;color:#4caf50;}
+.ack-note{font-size:10px;color:#4caf50;font-style:italic;margin-top:3px;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1387,6 +1394,7 @@ function exportRecommendationsPDF(){
 
     <div class="topbar-right">
       <button class="btn btn-secondary btn-sm" id="btn-demo" onclick="loadCurrentDemo()">⚡ Load Demo</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearAllAcknowledged()" title="Remove all acknowledged suppressions">↺ Reset Acks</button>
       <button class="btn btn-secondary btn-sm" onclick="exportAllCSV()">⬇ Export CSV</button>
       <div class="dropdown" style="position:relative;display:inline-block;">
         <button class="btn btn-secondary btn-sm" onclick="toggleExportMenu(event)" title="Export reports">📊 Export Report ▾</button>
@@ -1454,25 +1462,59 @@ function buildStatRow(stats,id){
 
 function buildSection(id,icon,title,desc,issues,container,append=true){
   const count=issues.length;
-  const bc=count===0?'ok':issues.some(i=>i.sev==='critical')?'critical':issues.some(i=>i.sev==='warning')?'warning':'info';
-  const label=count===0?'✓ Clear':count+' issue'+(count!==1?'s':'');
-  const isOpen=count>0;
+  const ackedCount=issues.filter(i=>isAcked(i.name,i.detail)).length;
+  const activeCount=count-ackedCount;
+  const bc=activeCount===0&&count>0?'ok':issues.some(i=>i.sev==='critical'&&!isAcked(i.name,i.detail))?'critical':issues.some(i=>i.sev==='warning'&&!isAcked(i.name,i.detail))?'warning':count===0?'ok':'info';
+  const label=count===0?'✓ Clear':activeCount===0?`✓ All ${count} acknowledged`:activeCount+' issue'+(activeCount!==1?'s':'')+(ackedCount>0?` (${ackedCount} acknowledged)`:'');
+  const isOpen=activeCount>0;
+  const ackBar=ackedCount>0&&activeCount>0?`<div class="ack-bar">✓ <span class="ack-bar-count">${ackedCount}</span> finding${ackedCount!==1?'s':''} acknowledged and excluded from score</div>`:'';
   const html=`<div class="audit-section"><div class="ash" onclick="toggleSec('${id}',this)">
     <span class="ash-icon">${icon}</span><div><div class="ash-title">${title}</div><div class="ash-desc">${desc}</div></div>
     <span class="ash-badge ${bc}">${label}</span><span class="ash-chev ${isOpen?'open':''}">▾</span></div>
     <div class="asb ${isOpen?'open':''}" id="${id}">
-    ${count===0?'<div class="empty-state">✓ No issues found.</div>':issues.map(renderIssue).join('')}
+    ${count===0?'<div class="empty-state">✓ No issues found.</div>':ackBar+issues.map(i=>renderIssue(i)).join('')}
     </div></div>`;
   const el=document.getElementById(container);
   if(append)el.innerHTML+=html; else el.innerHTML=html;
 }
 
-function renderIssue(i){
-  return`<div class="issue-row"><div class="isev ${i.sev||'info'}"></div><div style="flex:1;min-width:0">
-    <div class="iname">${esc(i.name)}</div><div class="idetail">${esc(i.detail)}</div>
-    ${i.tags?`<div class="itags">${i.tags.map(t=>`<span class="itag ${t.c||''}">${esc(t.v)}</span>`).join('')}</div>`:''}
-    ${i.rec?`<div class="irec"><strong>Rec:</strong> ${esc(i.rec)}</div>`:''}
-  </div></div>`;
+function _ackKey(name,detail){return'ack:'+(name||'')+'|'+(detail||'').slice(0,40);}
+function isAcked(name,detail){try{return!!localStorage.getItem(_ackKey(name,detail));}catch(e){return false;}}
+function toggleAck(name,detail,btn,row){
+  const k=_ackKey(name,detail);
+  try{
+    if(localStorage.getItem(k)){
+      localStorage.removeItem(k);
+      btn.textContent='Acknowledge';btn.classList.remove('acked');
+      row.classList.remove('acknowledged');
+    } else {
+      localStorage.setItem(k,'1');
+      btn.textContent='✓ Acknowledged';btn.classList.add('acked');
+      row.classList.add('acknowledged');
+    }
+  }catch(e){}
+  // Refresh score badge
+  if(window._lastResult&&window._lastPid&&window._lastMid)
+    updateBadge(window._lastPid,window._lastMid,window._lastResult.total);
+}
+
+function renderIssue(i,pid,mid){
+  const acked=isAcked(i.name,i.detail);
+  const rowId='ir-'+Math.random().toString(36).slice(2,8);
+  return`<div class="issue-row${acked?' acknowledged':''}" id="${rowId}">
+    <div class="isev ${i.sev||'info'}"></div>
+    <div style="flex:1;min-width:0">
+      <div class="iname">${esc(i.name)}</div>
+      <div class="idetail">${esc(i.detail)}</div>
+      ${i.tags?`<div class="itags">${i.tags.map(t=>`<span class="itag ${t.c||''}">${esc(t.v)}</span>`).join('')}</div>`:''}
+      ${i.rec?`<div class="irec"><strong>Rec:</strong> ${esc(i.rec)}</div>`:''}
+      ${acked?`<div class="ack-note">✓ Acknowledged — excluded from score</div>`:''}
+    </div>
+    <button class="ack-btn${acked?' acked':''}"
+      onclick="toggleAck(${JSON.stringify(i.name)},${JSON.stringify((i.detail||'').slice(0,40))},this,document.getElementById('${rowId}'))">
+      ${acked?'✓ Acknowledged':'Acknowledge'}
+    </button>
+  </div>`;
 }
 
 function toggleSec(id,hdr){
@@ -2189,7 +2231,9 @@ function renderDashboard(pid){
 // ════════════════════════════════════════════════════════════════
 function calcScore(issues,weights){
   let penalty=0;
-  Object.entries(weights).forEach(([key,w])=>{if(issues[key])penalty+=issues[key].length*w;});
+  Object.entries(weights).forEach(([key,w])=>{
+    if(issues[key]) penalty+=issues[key].filter(i=>!isAcked(i.name,i.detail)).length*w;
+  });
   return Math.max(0,Math.round(100-penalty));
 }
 
@@ -3783,6 +3827,19 @@ fp:{
 // ═══════════════════════════════════════════════════════════════
 // EXPORT REPORT FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
+
+function clearAllAcknowledged(){
+  if(!confirm('Remove all acknowledged suppressions? Findings will reappear in the audit.')) return;
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('ack:')) keys.push(k);
+  }
+  keys.forEach(k=>localStorage.removeItem(k));
+  // Re-render current module
+  if(currentPlatform&&currentModule) launchModule(currentPlatform,currentModule);
+  showToast(`Cleared ${keys.length} acknowledgement${keys.length!==1?'s':''}`);
+}
 
 function toggleExportMenu(e){
   e.stopPropagation();
