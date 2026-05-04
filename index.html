@@ -281,7 +281,7 @@ function exportWrittenReport(){
 
   const pid=currentPlatform;
   const p=PLATFORMS[pid];
-  const data=_getExportData(pid);
+  const data=_getExportData(pid,true);
   const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
   // ── Collect & sort findings ─────────────────────────────────────────────
@@ -694,7 +694,7 @@ async function exportWordReport(){
 
   const pid=currentPlatform;
   const p=PLATFORMS[pid];
-  const data=_getExportData(pid);
+  const data=_getExportData(pid,true);
   const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
   // Collect findings
@@ -1014,7 +1014,7 @@ function exportRecommendationsPDF(){
 
   const pid=currentPlatform;
   const p=PLATFORMS[pid];
-  const data=_getExportData(pid);
+  const data=_getExportData(pid,true);
   const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
   const allFindings=[];
@@ -3790,7 +3790,7 @@ function toggleExportMenu(e){
   document.addEventListener('click',()=>m.style.display='none',{once:true});
 }
 
-function _getExportData(pid){
+function _getExportData(pid,realOnly=false){
   const stored=JSON.parse(localStorage.getItem(lsKey(pid))||'{}');
   const p=PLATFORMS[pid];
   const defs=MODULE_DEFS[pid]||{};
@@ -3800,8 +3800,11 @@ function _getExportData(pid){
     const mid=mod.id;
     const def=defs[mid];
     if(!def) continue;
-    const rawData=stored[mid]&&stored[mid].length?stored[mid]:def.demo?.()||[];
-    const isDemo=!(stored[mid]&&stored[mid].length);
+    const hasReal=stored[mid]&&stored[mid].length>0;
+    const isDemo=!hasReal;
+    // Skip demo modules when realOnly is true
+    if(realOnly&&isDemo) continue;
+    const rawData=hasReal?stored[mid]:def.demo?.()||[];
     let result=null;
     try{ result=def.analyze(rawData); }catch(e){ continue; }
     results.push({mid,label:mod.label,isDemo,result,rawData});
@@ -3828,7 +3831,7 @@ function exportModuleReport(){
   document.getElementById('export-menu').style.display='none';
   const pid=currentPlatform;
   const p=PLATFORMS[pid];
-  const data=_getExportData(pid);
+  const data=_getExportData(pid,true);
   const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
   let html=`<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -3975,7 +3978,7 @@ function exportRecommendations(){
   document.getElementById('export-menu').style.display='none';
   const pid=currentPlatform;
   const p=PLATFORMS[pid];
-  const data=_getExportData(pid);
+  const data=_getExportData(pid,true);
   const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
   // Flatten all issues across all modules, sorted critical first
