@@ -2288,6 +2288,7 @@ pp:{
         return{id:r.ruleId||r.id,name:r.name,isActive,priority:r.priority??99,
           severity:(r.severity||'').toUpperCase(),category:r.category||'',
           appNames,remActions,hasRemediation,notifTemplates,hasNotification,tags:(r.tags||[]),
+          applications:r.applications||[],
           isTest:/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s:-])/i.test(r.name||'')};
       };
       const norm=rules.map(r=>_norm(r));
@@ -2360,17 +2361,19 @@ pp:{
             rec:`Verify whether ${a} is in scope. If monitored, ensure relevant rules exist in the appropriate module.`});
       });
 
-      // ── DUPLICATION DETECTION ────────────────────────────────────────────────
-      // Normalize name to get detection concept (strip app prefix, tier suffix)
+      // ── DUPLICATION / CONSOLIDATION DETECTION ───────────────────────────────
+      // Strip app prefix to get detection concept
       const _normConcept=name=>{
         let n=name.replace(/^(O365|GWS|GSUITE|GIT|ZOOM|BOX|DROPBOX|SLACK)\//i,'');
         n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING|TEST)[-_\s]*$/i,'');
-        n=n.replace(/\s*[\/-]\s*(Definite|Probable)$/i,'');
-        n=n.replace(/\s*\((?:high|medium|low|critical)[^)]*\)\s*$/i,'');
         return n.trim().toLowerCase();
       };
 
-      // 1. Config inconsistency within O365/GWS pairs
+      // Find O365/GWS pairs that could be merged into one multi-app rule
+      // Mergeable = same concept, same severity, same notification config, same remediation TYPE
+      const _getRemNames=r=>(r.remActions||[]).join('|');
+      const _getNotifCount=r=>r.notifTemplates.length;
+
       const byConceptAll={};
       norm.filter(r=>r.isActive&&!r.isTest).forEach(r=>{
         const concept=_normConcept(r.name);
@@ -2378,25 +2381,60 @@ pp:{
         byConceptAll[concept].push(r);
       });
 
+      const mergeableGroups=[];
+      const mismatchGroups=[];
+
       Object.entries(byConceptAll).forEach(([concept,rs])=>{
         if(rs.length<2) return;
-        const notifs=new Set(rs.map(r=>r.hasNotification));
-        const rems=new Set(rs.map(r=>r.hasRemediation));
+        const remSets=new Set(rs.map(r=>_getRemNames(r)));
+        const notifCounts=new Set(rs.map(r=>_getNotifCount(r)));
         const sevs=new Set(rs.map(r=>r.severity));
-        const msgs=[];
-        if(notifs.size>1) msgs.push('notification configured on some app variants but not others');
-        if(rems.size>1) msgs.push('remediation configured on some app variants but not others');
-        if(msgs.length>0){
-          const ruleNames=rs.map(r=>r.name).join(', ');
-          issues.dupEffort.push({sev:'warning',
-            name:`Config mismatch: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`Rules for the same detection have inconsistent configuration across apps: ${msgs.join('; ')}. Rules: ${ruleNames}`,
-            tags:[{v:'CONFIG MISMATCH',c:'y'},{v:`${rs.length} rules`}],
-            rec:'Ensure all app variants of the same detection have identical notification and remediation configuration.'});
+
+        // Truly mergeable: same remediation actions, same notification count, same severity
+        if(remSets.size===1&&notifCounts.size===1&&sevs.size===1){
+          mergeableGroups.push({concept,rules:rs});
+        } else if(remSets.size>1){
+          // Different remediation per app = intentional, but flag if notif count differs too
+          if(notifCounts.size>1){
+            mismatchGroups.push({concept,rules:rs,issue:'notification count differs between app variants'});
+          }
         }
       });
 
-      // 2. Tier stacks where lower tiers are completely silent
+      // Flag mergeable pairs as consolidation opportunities
+      if(mergeableGroups.length>0){
+        // Group into one summary finding
+        const highPri=mergeableGroups.filter(g=>['CRITICAL','HIGH'].includes(g.rules[0].severity));
+        const allNames=mergeableGroups.map(g=>g.rules.map(r=>r.name).join(' + ')).join('; ');
+        issues.dupEffort.push({sev:'warning',
+          name:`${mergeableGroups.length} rule pairs can be consolidated into multi-app rules`,
+          detail:`Proofpoint CASB allows a single rule to cover multiple apps. ${mergeableGroups.length} pairs of O365/GWS rules have identical configuration (same severity, notifications, and remediation) and could each be merged into one rule — reducing ${mergeableGroups.length*2} rules to ${mergeableGroups.length}. Examples: ${mergeableGroups.slice(0,5).map(g=>g.rules.map(r=>r.name.split('/').slice(1).join('/')).filter((v,i,a)=>a.indexOf(v)===i).join('/')).join(', ')}`,
+          tags:[{v:`${mergeableGroups.length} PAIRS`,c:'y'},{v:`SAVE ${mergeableGroups.length} RULES`,c:'g'}],
+          rec:`In Proofpoint CASB, edit each pair and add the second app to the Applications list. This halves your rule count with no coverage loss. Start with the ${highPri.length} CRITICAL/HIGH pairs for maximum impact.`});
+
+        // Also add individual findings for each mergeable pair
+        mergeableGroups.forEach(({concept,rules})=>{
+          const sev=rules[0].severity;
+          const ruleNames=rules.map(r=>r.name).join(' + ');
+          const apps=rules.map(r=>(r.applications||r.appNames||'').toString()).join(' + ');
+          issues.dupEffort.push({sev:'info',
+            name:`Consolidate: ${rules[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`${rules.length} separate rules detect the same thing on different apps: ${ruleNames}. Identical severity (${sev}), notifications, and remediation — can be merged into one multi-app rule.`,
+            tags:[{v:'CONSOLIDATE',c:'b'},{v:sev,c:sev==='CRITICAL'?'r':sev==='HIGH'?'y':'b'}],
+            rec:'Edit one rule, add the other app to the Applications list, then delete the redundant rule.'});
+        });
+      }
+
+      // Flag config mismatches (notification count differs between app variants)
+      mismatchGroups.forEach(({concept,rules,issue})=>{
+        issues.dupEffort.push({sev:'info',
+          name:`Config drift: ${concept.slice(0,50)}`,
+          detail:`O365 and GWS variants of this rule have different notification counts. ${issue}. Rules: ${rules.map(r=>r.name).join(', ')}`,
+          tags:[{v:'CONFIG DRIFT',c:'y'}],
+          rec:'Review notification templates across both app variants to ensure consistent alerting.'});
+      });
+
+      // Silent lower tiers — generate noise with no value
       const byBaseConcept={};
       norm.filter(r=>r.isActive&&!r.isTest).forEach(r=>{
         let base=r.name.replace(/^(O365|GWS|GSUITE)\//i,'');
@@ -2405,45 +2443,32 @@ pp:{
         if(!byBaseConcept[base])byBaseConcept[base]=[];
         byBaseConcept[base].push(r);
       });
-
+      const seenSilentBase=new Set();
       Object.entries(byBaseConcept).forEach(([base,rs])=>{
-        // Unique app+concept combos to find per-app stacks
-        const byApp={};
-        rs.forEach(r=>{
-          const app=r.appNames.toLowerCase();
-          if(!byApp[app])byApp[app]=[];
-          byApp[app].push(r);
-        });
-        Object.entries(byApp).forEach(([app,appRules])=>{
-          if(appRules.length<2) return;
-          const hasHighNotif=appRules.some(r=>['CRITICAL','HIGH'].includes(r.severity)&&r.hasNotification);
-          const silentLow=appRules.filter(r=>['MEDIUM','LOW'].includes(r.severity)&&!r.hasNotification&&!r.hasRemediation);
-          if(hasHighNotif&&silentLow.length>0){
-            const silentNames=silentLow.map(r=>r.name).join(', ');
-            issues.dupEffort.push({sev:'info',
-              name:`Silent lower tiers: ${base.slice(0,45)}`,
-              detail:`Higher-severity tiers have notifications but lower tiers (${silentLow.map(r=>r.severity).join('/')}) fire silently: ${silentNames}`,
-              tags:[{v:'SILENT LOWER TIER',c:'b'},{v:app}],
-              rec:`Consider whether the lower-severity tier rules add value if they generate no alerts and take no action. Consolidate or add notifications to make them useful.`});
-          }
-        });
+        if(rs.length<2||seenSilentBase.has(base)) return;
+        const hasHighNotif=rs.some(r=>['CRITICAL','HIGH'].includes(r.severity)&&r.hasNotification);
+        const silentLow=rs.filter(r=>['MEDIUM','LOW'].includes(r.severity)&&!r.hasNotification&&!r.hasRemediation);
+        // Only flag unique base concepts (not per-app)
+        const uniqueSilent=[...new Map(silentLow.map(r=>[r.name.replace(/^(O365|GWS)\//i,''),r])).values()];
+        if(hasHighNotif&&uniqueSilent.length>0){
+          seenSilentBase.add(base);
+          issues.dupEffort.push({sev:'info',
+            name:`Silent lower tiers: ${base.slice(0,45)}`,
+            detail:`The HIGH/CRITICAL tier alerts your team but the ${uniqueSilent.map(r=>r.severity).join('/')} tiers fire silently (no notification, no remediation): ${uniqueSilent.map(r=>r.name).join(', ')}`,
+            tags:[{v:'SILENT TIER',c:'b'}],
+            rec:'Either add notifications to the lower tiers to make them useful, or remove them if the higher-severity tier already covers the meaningful detections.'});
+        }
       });
 
-      // 3. TAMU-specific variants alongside standard rules
-      const tamuRules=norm.filter(r=>r.isActive&&(r.name.includes('TAMUResearch')||r.name.includes('ResearchWords')||r.name.toLowerCase().includes('tamu')));
+      // TAMU-specific variants alongside standard rules
+      const tamuRules=norm.filter(r=>r.isActive&&!r.isTest&&(r.name.includes('TAMUResearch')||r.name.includes('ResearchWords')));
       if(tamuRules.length>0){
-        // Check if standard versions of these rules also exist
-        const tamuWithStandard=tamuRules.filter(r=>{
-          const stdName=r.name.replace(/-TAMUResearchWords?/i,'').replace(/ResearchWords?/i,'Sensitive Data').replace(/ExternalShare_TAMUResearchTerms_Weighted/i,'External Shared File with Sensitive Info').trim();
-          return norm.some(s=>s.isActive&&!s.isTest&&s.name!==r.name&&_normConcept(s.name)===_normConcept(stdName));
-        });
-        if(tamuWithStandard.length>0){
-          issues.dupEffort.push({sev:'info',
-            name:`${tamuWithStandard.length} TAMU-specific rules overlap standard detections`,
-            detail:`TAMU-specific classifier variants (TAMUResearchWords, ResearchWordsExternalShare) run alongside standard detection rules covering the same activity types. Both fire on the same events with different classifiers: ${tamuWithStandard.map(r=>r.name).join(', ')}`,
-            tags:[{v:'TAMU VARIANT',c:'b'},{v:`${tamuWithStandard.length} rules`}],
-            rec:'Review whether TAMU-specific classifiers are capturing events the standard rules miss. If standard rules already cover these scenarios, consider consolidating the TAMU-specific rules to reduce noise.'});
-        }
+        const uniqueTamu=[...new Map(tamuRules.map(r=>[_normConcept(r.name),r])).values()];
+        issues.dupEffort.push({sev:'info',
+          name:`${uniqueTamu.length} TAMU-specific classifiers overlap standard detections`,
+          detail:`Rules using TAMUResearchWords and ResearchWordsExternalShare classifiers run alongside standard detection rules covering the same activities (Massive Download, Broad Sharing, Deletions). Total TAMU-specific rules: ${tamuRules.length}`,
+          tags:[{v:'TAMU CLASSIFIER',c:'b'},{v:`${tamuRules.length} rules`}],
+          rec:'Verify whether these TAMU-specific classifiers detect events the standard rules miss. If the standard rules already cover them, consolidate to reduce rule count and incident noise.'});
       }
 
       return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:2,coverage:1,dupEffort:3}),rules,'rules');
