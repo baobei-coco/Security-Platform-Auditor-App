@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -27,15 +28,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(233,30,140,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(233,30,140,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
 
 /* ── LANDING PAGE ── */
-#landing{position:relative;z-index:1000;background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh;}
-#landing::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(233,30,140,.08) 0%,transparent 70%);pointer-events:none;}
-.landing-logo{font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:.15em;text-transform:uppercase;margin-bottom:16px;}
+#landing{position:relative;z-index:1000;background:var(–bg);display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh;}
+#landing::before{content:’’;position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(233,30,140,.08) 0%,transparent 70%);pointer-events:none;}
+.landing-logo{font-size:11px;font-family:var(–mono);color:var(–text3);letter-spacing:.15em;text-transform:uppercase;margin-bottom:16px;}
 .landing-title{font-size:clamp(28px,5vw,48px);font-weight:800;text-align:center;letter-spacing:-.02em;margin-bottom:8px;background:linear-gradient(135deg,#e2e8f0 0%,#94a3b8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.landing-sub{font-size:14px;color:var(--text2);text-align:center;margin-bottom:48px;max-width:480px;line-height:1.6;}
+.landing-sub{font-size:14px;color:var(–text2);text-align:center;margin-bottom:48px;max-width:480px;line-height:1.6;}
 .platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;width:100%;max-width:900px;margin-bottom:32px;}
-.platform-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
-.platform-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;}
-.platform-card:hover{transform:translateY(-2px);border-color:var(--border2);}
+.platform-card{background:var(–s1);border:1px solid var(–border);border-radius:12px;padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.platform-card::before{content:’’;position:absolute;inset:0;opacity:0;transition:opacity .2s;}
+.platform-card:hover{transform:translateY(-2px);border-color:var(–border2);}
 .platform-card.pp::before{background:linear-gradient(135deg,rgba(233,30,140,.08),transparent);}
 .platform-card.purview::before{background:linear-gradient(135deg,rgba(0,120,212,.08),transparent);}
 .platform-card.cs::before{background:linear-gradient(135deg,rgba(239,68,68,.08),transparent);}
@@ -45,15 +46,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .platform-card:hover::before{opacity:1;}
 .pc-icon{font-size:0;margin-bottom:12px;display:flex;align-items:center;justify-content:center;height:52px;}
 .pc-name{font-size:14px;font-weight:700;margin-bottom:4px;}
-.pc-desc{font-size:11px;color:var(--text3);line-height:1.5;}
-.pc-modules{margin-top:10px;font-size:10px;font-family:var(--mono);color:var(--text3);}
+.pc-desc{font-size:11px;color:var(–text3);line-height:1.5;}
+.pc-modules{margin-top:10px;font-size:10px;font-family:var(–mono);color:var(–text3);}
 .pc-accent{position:absolute;bottom:0;left:0;right:0;height:2px;opacity:.6;}
-.pc-accent.pp{background:var(--accent);}
+.pc-accent.pp{background:var(–accent);}
 .pc-accent.purview{background:#0078d4;}
-.pc-accent.cs{background:var(--red);}
-.pc-accent.zs{background:var(--green);}
-.pc-accent.sym{background:var(--yellow);}
-.pc-accent.fp{background:var(--purple);}
+.pc-accent.cs{background:var(–red);}
+.pc-accent.zs{background:var(–green);}
+.pc-accent.sym{background:var(–yellow);}
+.pc-accent.fp{background:var(–purple);}
 .pc-accent.msd{background:#0078d4;}
 .pc-accent.splunk{background:#f7941e;}
 .pc-accent.s1{background:#a855f7;}
@@ -72,48 +73,48 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .platform-gws .nav-item.active{background:rgba(234,67,53,.1);border-left-color:#ea4335;}
 .platform-extrahop .nav-item.active{background:rgba(0,180,160,.1);border-left-color:#00b4a0;}
 .platform-aws .nav-item.active{background:rgba(255,153,0,.1);border-left-color:#ff9900;}
-.landing-note{font-size:11px;color:var(--text3);text-align:center;font-family:var(--mono);}
+.landing-note{font-size:11px;color:var(–text3);text-align:center;font-family:var(–mono);}
 
 /* ── APP SHELL ── */
 #app{display:none;flex-direction:column;height:100vh;max-height:100vh;overflow:hidden;position:relative;z-index:1;}
-.topbar{background:rgba(13,17,23,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:200;height:50px;}
-.brand{display:flex;align-items:center;gap:8px;padding-right:16px;border-right:1px solid var(--border);cursor:pointer;}
+.topbar{background:rgba(13,17,23,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(–border);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:200;height:50px;}
+.brand{display:flex;align-items:center;gap:8px;padding-right:16px;border-right:1px solid var(–border);cursor:pointer;}
 .brand-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
 .brand-text{font-size:12px;font-weight:700;letter-spacing:.03em;white-space:nowrap;}
 
 /* Platform switcher dropdown */
 .platform-switcher{position:relative;}
-.ps-trigger{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--border2);border-radius:7px;padding:5px 10px;cursor:pointer;transition:border-color .15s;font-size:12px;font-weight:600;white-space:nowrap;}
-.ps-trigger:hover{border-color:var(--accent);}
+.ps-trigger{display:flex;align-items:center;gap:8px;background:var(–s2);border:1px solid var(–border2);border-radius:7px;padding:5px 10px;cursor:pointer;transition:border-color .15s;font-size:12px;font-weight:600;white-space:nowrap;}
+.ps-trigger:hover{border-color:var(–accent);}
 .ps-trigger .ps-icon{font-size:0;display:inline-flex;align-items:center;}
 .ps-trigger .ps-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;}
-.ps-trigger .ps-arrow{color:var(--text3);font-size:10px;margin-left:2px;transition:transform .2s;}
+.ps-trigger .ps-arrow{color:var(–text3);font-size:10px;margin-left:2px;transition:transform .2s;}
 .ps-trigger.open .ps-arrow{transform:rotate(180deg);}
-.ps-dropdown{position:absolute;top:calc(100% + 6px);left:0;background:var(--s2);border:1px solid var(--border2);border-radius:10px;min-width:220px;z-index:500;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+.ps-dropdown{position:absolute;top:calc(100% + 6px);left:0;background:var(–s2);border:1px solid var(–border2);border-radius:10px;min-width:220px;z-index:500;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.4);}
 .ps-dropdown.hidden{display:none;}
 .ps-option{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .1s;font-size:12px;}
-.ps-option:hover{background:var(--s3);}
-.ps-option.active{background:var(--accent-dim);}
+.ps-option:hover{background:var(–s3);}
+.ps-option.active{background:var(–accent-dim);}
 .ps-option .pso-icon{font-size:0;width:24px;display:inline-flex;align-items:center;justify-content:center;}
 .ps-option .pso-name{font-weight:600;}
-.ps-option .pso-sub{font-size:10px;color:var(--text3);font-family:var(--mono);}
-.ps-badge{margin-left:auto;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;}
+.ps-option .pso-sub{font-size:10px;color:var(–text3);font-family:var(–mono);}
+.ps-badge{margin-left:auto;font-family:var(–mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;}
 
 .topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
 
 /* ── LAYOUT ── */
 .layout{display:flex;flex:1;min-height:0;overflow:hidden;}
-.sidebar{width:210px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);overflow-y:auto;padding:10px 0;}
-.nav-group{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;padding:10px 14px 5px;}
-.nav-item{display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;transition:background .1s,color .1s;border-left:2px solid transparent;font-size:12px;font-weight:500;color:var(--text2);user-select:none;}
-.nav-item:hover{background:var(--s2);color:var(--text);}
-.nav-item.active{background:var(--accent-dim);border-left-color:var(--accent);color:var(--text);}
+.sidebar{width:210px;flex-shrink:0;background:var(–s1);border-right:1px solid var(–border);overflow-y:auto;padding:10px 0;}
+.nav-group{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(–text3);text-transform:uppercase;padding:10px 14px 5px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;transition:background .1s,color .1s;border-left:2px solid transparent;font-size:12px;font-weight:500;color:var(–text2);user-select:none;}
+.nav-item:hover{background:var(–s2);color:var(–text);}
+.nav-item.active{background:var(–accent-dim);border-left-color:var(–accent);color:var(–text);}
 .nav-icon{font-size:13px;width:16px;text-align:center;flex-shrink:0;}
-.nav-badge{margin-left:auto;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;min-width:16px;text-align:center;}
-.nav-badge.red{background:var(--red-dim);color:var(--red);}
-.nav-badge.yellow{background:var(--yellow-dim);color:var(--yellow);}
-.nav-badge.green{background:var(--green-dim);color:var(--green);}
-.nav-badge.gray{background:var(--s3);color:var(--text3);}
+.nav-badge{margin-left:auto;font-family:var(–mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;min-width:16px;text-align:center;}
+.nav-badge.red{background:var(–red-dim);color:var(–red);}
+.nav-badge.yellow{background:var(–yellow-dim);color:var(–yellow);}
+.nav-badge.green{background:var(–green-dim);color:var(–green);}
+.nav-badge.gray{background:var(–s3);color:var(–text3);}
 
 .main{flex:1;overflow-y:auto;padding:22px;}
 .module-pane{display:none;}
@@ -123,91 +124,91 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 /* ── MODULE HEADER ── */
 .module-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
 .module-title{font-size:19px;font-weight:800;letter-spacing:-.01em;}
-.module-subtitle{font-size:11px;color:var(--text2);margin-top:2px;}
+.module-subtitle{font-size:11px;color:var(–text2);margin-top:2px;}
 .module-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
 
 /* ── BUTTONS ── */
-.btn{border:none;border-radius:6px;padding:6px 13px;font-family:var(--sans);font-size:11px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;white-space:nowrap;}
+.btn{border:none;border-radius:6px;padding:6px 13px;font-family:var(–sans);font-size:11px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;white-space:nowrap;}
 .btn:hover{opacity:.85;}
 .btn:active{transform:scale(.97);}
-.btn-primary{background:var(--accent);color:#fff;}
-.btn-secondary{background:var(--s3);border:1px solid var(--border2);color:var(--text);}
+.btn-primary{background:var(–accent);color:#fff;}
+.btn-secondary{background:var(–s3);border:1px solid var(–border2);color:var(–text);}
 .btn-sm{padding:5px 9px;font-size:10px;}
 
 /* ── STAT ROW ── */
 .upload-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:22px;}
-.upload-card{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px 12px;display:flex;flex-direction:column;gap:8px;}
+.upload-card{background:var(–s2);border:1px solid var(–border);border-radius:10px;padding:14px 12px;display:flex;flex-direction:column;gap:8px;}
 .upload-card-icon{font-size:22px;}
-.upload-card-label{font-size:12px;font-weight:700;color:var(--text);}
+.upload-card-label{font-size:12px;font-weight:700;color:var(–text);}
 .upload-card-btns{display:flex;gap:6px;flex-wrap:wrap;}
 .stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:9px;margin-bottom:18px;}
-.stat-box{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;transition:border-color .15s,transform .1s;}.stat-box.clickable{cursor:pointer;}.stat-box.clickable:hover{border-color:var(--accent);transform:translateY(-1px);}
-.stat-box .sb-num{font-family:var(--mono);font-size:20px;font-weight:600;line-height:1;}
-.stat-box .sb-label{font-size:10px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.06em;}
-.sb-red .sb-num{color:var(--red);} .sb-yellow .sb-num{color:var(--yellow);} .sb-green .sb-num{color:var(--green);}
-.sb-blue .sb-num{color:var(--accent);} .sb-purple .sb-num{color:var(--purple);} .sb-cyan .sb-num{color:var(--cyan);}
-.sb-orange .sb-num{color:var(--orange);}
+.stat-box{background:var(–s2);border:1px solid var(–border);border-radius:8px;padding:11px 13px;transition:border-color .15s,transform .1s;}.stat-box.clickable{cursor:pointer;}.stat-box.clickable:hover{border-color:var(–accent);transform:translateY(-1px);}
+.stat-box .sb-num{font-family:var(–mono);font-size:20px;font-weight:600;line-height:1;}
+.stat-box .sb-label{font-size:10px;color:var(–text2);margin-top:3px;text-transform:uppercase;letter-spacing:.06em;}
+.sb-red .sb-num{color:var(–red);} .sb-yellow .sb-num{color:var(–yellow);} .sb-green .sb-num{color:var(–green);}
+.sb-blue .sb-num{color:var(–accent);} .sb-purple .sb-num{color:var(–purple);} .sb-cyan .sb-num{color:var(–cyan);}
+.sb-orange .sb-num{color:var(–orange);}
 
 /* ── AUDIT SECTIONS ── */
-.audit-section{background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
+.audit-section{background:var(–s1);border:1px solid var(–border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
 .ash{display:flex;align-items:center;gap:10px;padding:11px 15px;cursor:pointer;transition:background .1s;user-select:none;}
-.ash:hover{background:var(--s2);}
+.ash:hover{background:var(–s2);}
 .ash-icon{font-size:15px;}
 .ash-title{font-size:12px;font-weight:700;}
-.ash-desc{font-size:10px;color:var(--text2);margin-top:1px;}
-.ash-badge{margin-left:auto;font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;white-space:nowrap;}
-.ash-badge.critical{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2);}
-.ash-badge.warning{background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(245,158,11,.2);}
-.ash-badge.info{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(233,30,140,.2);}
-.ash-badge.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.2);}
-.ash-chev{color:var(--text3);transition:transform .2s;font-size:10px;margin-left:4px;}
+.ash-desc{font-size:10px;color:var(–text2);margin-top:1px;}
+.ash-badge{margin-left:auto;font-family:var(–mono);font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;white-space:nowrap;}
+.ash-badge.critical{background:var(–red-dim);color:var(–red);border:1px solid rgba(239,68,68,.2);}
+.ash-badge.warning{background:var(–yellow-dim);color:var(–yellow);border:1px solid rgba(245,158,11,.2);}
+.ash-badge.info{background:var(–accent-dim);color:var(–accent);border:1px solid rgba(233,30,140,.2);}
+.ash-badge.ok{background:var(–green-dim);color:var(–green);border:1px solid rgba(16,185,129,.2);}
+.ash-chev{color:var(–text3);transition:transform .2s;font-size:10px;margin-left:4px;}
 .ash-chev.open{transform:rotate(180deg);}
-.asb{display:none;border-top:1px solid var(--border);}
+.asb{display:none;border-top:1px solid var(–border);}
 .asb.open{display:block;}
-.issue-row{display:flex;align-items:flex-start;gap:10px;padding:11px 15px;border-bottom:1px solid var(--border);transition:background .1s;}
+.issue-row{display:flex;align-items:flex-start;gap:10px;padding:11px 15px;border-bottom:1px solid var(–border);transition:background .1s;}
 .issue-row:last-child{border-bottom:none;}
-.issue-row:hover{background:var(--s2);}
+.issue-row:hover{background:var(–s2);}
 .isev{width:5px;flex-shrink:0;border-radius:3px;align-self:stretch;min-height:18px;}
-.isev.critical{background:var(--red);box-shadow:0 0 6px rgba(239,68,68,.35);}
-.isev.warning{background:var(--yellow);}
-.isev.info{background:var(--accent);}
-.isev.ok{background:var(--green);}
+.isev.critical{background:var(–red);box-shadow:0 0 6px rgba(239,68,68,.35);}
+.isev.warning{background:var(–yellow);}
+.isev.info{background:var(–accent);}
+.isev.ok{background:var(–green);}
 .iname{font-size:12px;font-weight:600;margin-bottom:2px;}
-.idetail{font-size:11px;color:var(--text2);line-height:1.5;}
+.idetail{font-size:11px;color:var(–text2);line-height:1.5;}
 .itags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
-.itag{font-family:var(--mono);font-size:9px;background:var(--s3);border:1px solid var(--border2);padding:2px 5px;border-radius:3px;color:var(--text2);}
-.itag.r{background:var(--red-dim);border-color:rgba(239,68,68,.2);color:var(--red);}
-.itag.y{background:var(--yellow-dim);border-color:rgba(245,158,11,.2);color:var(--yellow);}
-.itag.g{background:var(--green-dim);border-color:rgba(16,185,129,.2);color:var(--green);}
-.itag.b{background:var(--accent-dim);border-color:rgba(233,30,140,.2);color:var(--accent);}
-.itag.p{background:var(--purple-dim);border-color:rgba(139,92,246,.2);color:var(--purple);}
-.itag.o{background:var(--orange-dim);border-color:rgba(249,115,22,.2);color:var(--orange);}
-.irec{background:var(--s3);border-left:3px solid var(--accent);border-radius:0 5px 5px 0;padding:7px 10px;font-size:10px;color:var(--text2);margin-top:5px;line-height:1.6;}
-.irec strong{color:var(--accent);}
-.empty-state{padding:20px;text-align:center;color:var(--text3);font-size:11px;}
+.itag{font-family:var(–mono);font-size:9px;background:var(–s3);border:1px solid var(–border2);padding:2px 5px;border-radius:3px;color:var(–text2);}
+.itag.r{background:var(–red-dim);border-color:rgba(239,68,68,.2);color:var(–red);}
+.itag.y{background:var(–yellow-dim);border-color:rgba(245,158,11,.2);color:var(–yellow);}
+.itag.g{background:var(–green-dim);border-color:rgba(16,185,129,.2);color:var(–green);}
+.itag.b{background:var(–accent-dim);border-color:rgba(233,30,140,.2);color:var(–accent);}
+.itag.p{background:var(–purple-dim);border-color:rgba(139,92,246,.2);color:var(–purple);}
+.itag.o{background:var(–orange-dim);border-color:rgba(249,115,22,.2);color:var(–orange);}
+.irec{background:var(–s3);border-left:3px solid var(–accent);border-radius:0 5px 5px 0;padding:7px 10px;font-size:10px;color:var(–text2);margin-top:5px;line-height:1.6;}
+.irec strong{color:var(–accent);}
+.empty-state{padding:20px;text-align:center;color:var(–text3);font-size:11px;}
 
 /* ── HEALTH CARDS ── */
 .health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:9px;margin-bottom:22px;}
-.health-card{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:13px;cursor:pointer;transition:border-color .15s,transform .12s;position:relative;overflow:hidden;}
-.health-card:hover{border-color:var(--border2);transform:translateY(-1px);}
-.hc-mod{font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;}
-.hc-score{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1;}
-.hc-label{font-size:10px;color:var(--text2);margin-top:3px;}
+.health-card{background:var(–s2);border:1px solid var(–border);border-radius:10px;padding:13px;cursor:pointer;transition:border-color .15s,transform .12s;position:relative;overflow:hidden;}
+.health-card:hover{border-color:var(–border2);transform:translateY(-1px);}
+.hc-mod{font-size:9px;color:var(–text3);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;}
+.hc-score{font-family:var(–mono);font-size:26px;font-weight:600;line-height:1;}
+.hc-label{font-size:10px;color:var(–text2);margin-top:3px;}
 .hc-bar{position:absolute;bottom:0;left:0;right:0;height:2px;}
-.sc-a{color:var(--green);} .sc-b{color:#84cc16;} .sc-c{color:var(--yellow);} .sc-d{color:var(--orange);} .sc-f{color:var(--red);}
+.sc-a{color:var(–green);} .sc-b{color:#84cc16;} .sc-c{color:var(–yellow);} .sc-d{color:var(–orange);} .sc-f{color:var(–red);}
 
 /* ── DEMO BAR ── */
-.demo-bar{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.18);border-radius:7px;padding:7px 12px;display:flex;align-items:center;gap:7px;font-size:10px;color:var(--yellow);margin-bottom:14px;}
+.demo-bar{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.18);border-radius:7px;padding:7px 12px;display:flex;align-items:center;gap:7px;font-size:10px;color:var(–yellow);margin-bottom:14px;}
 
 /* ── FILTER ── */
-.filter-bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:9px 15px;background:var(--s2);border-bottom:1px solid var(--border);}
-.filter-bar input,.filter-bar select{background:var(--s3);border:1px solid var(--border2);border-radius:5px;padding:5px 9px;color:var(--text);font-family:var(--sans);font-size:11px;outline:none;transition:border-color .15s;}
+.filter-bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:9px 15px;background:var(–s2);border-bottom:1px solid var(–border);}
+.filter-bar input,.filter-bar select{background:var(–s3);border:1px solid var(–border2);border-radius:5px;padding:5px 9px;color:var(–text);font-family:var(–sans);font-size:11px;outline:none;transition:border-color .15s;}
 .filter-bar input{flex:1;min-width:140px;}
-.filter-bar input:focus,.filter-bar select:focus{border-color:var(--accent);}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(–accent);}
 
 ::-webkit-scrollbar{width:4px;height:4px;}
-::-webkit-scrollbar-track{background:var(--s1);}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+::-webkit-scrollbar-track{background:var(–s1);}
+::-webkit-scrollbar-thumb{background:var(–border2);border-radius:3px;}
 
 /* Platform color accents */
 .platform-pp    .nav-item.active{background:rgba(233,30,140,.1);border-left-color:#e91e8c;}
@@ -220,61 +221,64 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 /* ── Import modal overlay ─────────────────────────────────────── */
 .import-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center;padding:20px;}
 .import-overlay.open{display:flex;}
-.import-box{background:var(--s1);border:1px solid var(--border2);border-radius:14px;width:min(700px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;}
-.import-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(--border);}
+.import-box{background:var(–s1);border:1px solid var(–border2);border-radius:14px;width:min(700px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;}
+.import-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(–border);}
 .import-head h2{font-size:16px;font-weight:700;margin:0;}
-.import-close{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:5px;line-height:1;}
-.import-close:hover{background:var(--s3);color:var(--text);}
-.import-tabs{display:flex;gap:5px;padding:12px 22px 0;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:0;}
-.import-tab{background:none;border:none;border-bottom:2px solid transparent;padding:7px 12px 9px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--sans);}
-.import-tab:hover{color:var(--text);}
-.import-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.import-close{background:none;border:none;color:var(–text2);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:5px;line-height:1;}
+.import-close:hover{background:var(–s3);color:var(–text);}
+.import-tabs{display:flex;gap:5px;padding:12px 22px 0;flex-wrap:wrap;border-bottom:1px solid var(–border);padding-bottom:0;}
+.import-tab{background:none;border:none;border-bottom:2px solid transparent;padding:7px 12px 9px;font-size:12px;font-weight:600;color:var(–text2);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(–sans);}
+.import-tab:hover{color:var(–text);}
+.import-tab.active{color:var(–accent);border-bottom-color:var(–accent);}
 .import-tab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .import-tab-dot.stored{background:#22c55e;}
-.import-tab-dot.demo{background:var(--text3);opacity:.4;}
+.import-tab-dot.demo{background:var(–text3);opacity:.4;}
 .import-body{padding:18px 22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
 .import-fmt{display:flex;gap:6px;}
-.fmt-btn{padding:5px 14px;border:1px solid var(--border2);background:var(--s2);border-radius:6px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--sans);}
-.fmt-btn:hover{border-color:var(--accent);color:var(--text);}
-.fmt-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.import-hints{font-size:12px;color:var(--text2);line-height:1.5;}
-.hint-tag{display:inline-block;background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:1px 6px;font-family:var(--mono);font-size:11px;color:var(--text);}
+.fmt-btn{padding:5px 14px;border:1px solid var(–border2);background:var(–s2);border-radius:6px;font-size:12px;font-weight:600;color:var(–text2);cursor:pointer;font-family:var(–sans);}
+.fmt-btn:hover{border-color:var(–accent);color:var(–text);}
+.fmt-btn.active{background:var(–accent);border-color:var(–accent);color:#fff;}
+.import-hints{font-size:12px;color:var(–text2);line-height:1.5;}
+.hint-tag{display:inline-block;background:var(–s2);border:1px solid var(–border2);border-radius:4px;padding:1px 6px;font-family:var(–mono);font-size:11px;color:var(–text);}
 .hint-stored{color:#22c55e;font-weight:700;}
-.hint-demo{color:var(--text3);}
-.import-textarea{width:100%;min-height:160px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--text);resize:vertical;outline:none;box-sizing:border-box;}
-.import-textarea:focus{border-color:var(--accent);}
-.import-file-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);}
-.import-file-btn{padding:5px 12px;border:1px solid var(--border2);background:var(--s2);border-radius:6px;font-size:12px;color:var(--text);cursor:pointer;font-family:var(--sans);}
-.import-file-btn:hover{border-color:var(--accent);}
+.hint-demo{color:var(–text3);}
+.import-textarea{width:100%;min-height:160px;background:var(–s2);border:1px solid var(–border);border-radius:8px;padding:10px 12px;font-family:var(–mono);font-size:12px;color:var(–text);resize:vertical;outline:none;box-sizing:border-box;}
+.import-textarea:focus{border-color:var(–accent);}
+.import-file-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(–text2);}
+.import-file-btn{padding:5px 12px;border:1px solid var(–border2);background:var(–s2);border-radius:6px;font-size:12px;color:var(–text);cursor:pointer;font-family:var(–sans);}
+.import-file-btn:hover{border-color:var(–accent);}
 .import-preview{font-size:12px;min-height:20px;}
 .import-preview-ok{color:#22c55e;font-weight:600;}
-.import-preview-err{color:var(--red);font-weight:600;}
-.import-foot{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid var(--border);gap:10px;}
+.import-preview-err{color:var(–red);font-weight:600;}
+.import-foot{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid var(–border);gap:10px;}
 .import-foot-left{display:flex;gap:8px;}
-.btn-danger-ghost{padding:6px 12px;border:1px solid rgba(239,68,68,.4);background:none;border-radius:7px;font-size:12px;color:var(--red);cursor:pointer;font-weight:600;font-family:var(--sans);}
+.btn-danger-ghost{padding:6px 12px;border:1px solid rgba(239,68,68,.4);background:none;border-radius:7px;font-size:12px;color:var(–red);cursor:pointer;font-weight:600;font-family:var(–sans);}
 .btn-danger-ghost:hover{background:rgba(239,68,68,.1);}
 /* ── Toast ───────────────────────────────────────────────────── */
-.import-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;}
+.import-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(–s3);border:1px solid var(–border2);color:var(–text);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;}
 .import-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 /* ── data-dot in sidebar ─────────────────────────────────────── */
 .data-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:6px;vertical-align:middle;flex-shrink:0;}
 .data-dot.stored{background:#22c55e;box-shadow:0 0 4px #22c55e88;}
-.data-dot.demo{background:var(--text3);opacity:.4;}
+.data-dot.demo{background:var(–text3);opacity:.4;}
 
 .stored-bar{display:none;align-items:center;gap:8px;padding:6px 14px;
-  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);
-  border-radius:7px;font-size:12px;color:#22c55e;font-weight:600;margin:0 0 6px;}
+background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);
+border-radius:7px;font-size:12px;color:#22c55e;font-weight:600;margin:0 0 6px;}
 .stored-bar.visible{display:flex;}
 
-.ack-btn{margin-left:8px;flex-shrink:0;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;transition:all .2s;}
-.ack-btn:hover{border-color:var(--accent);color:var(--accent);}
+.ack-btn{margin-left:8px;flex-shrink:0;background:transparent;border:1px solid var(–border);color:var(–muted);font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.ack-btn:hover{border-color:var(–accent);color:var(–accent);}
 .ack-btn.acked{background:rgba(76,175,80,.12);border-color:#4caf50;color:#4caf50;}
 .issue-row.acknowledged{opacity:.4;filter:grayscale(.5);}
 .ack-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.2);border-radius:6px;margin-bottom:8px;font-size:12px;color:#4caf50;}
 .ack-note{font-size:10px;color:#4caf50;font-style:italic;margin-top:3px;}
 </style>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 <script>
 // ═══════════════════════════════════════════════════════════════
 // WRITTEN REPORT — AI-generated narrative PDF
@@ -1011,6 +1015,7 @@ async function exportWordReport(){
 
 
 </script>
+
 <script>
 // ── Recommendations PDF (written report) ─────────────────────────────────────
 function exportRecommendationsPDF(){
@@ -1240,10 +1245,12 @@ function exportRecommendationsPDF(){
   }
 }
 </script>
+
 </head>
 <body>
 
 <!-- ════════════════ LANDING PAGE ════════════════ -->
+
 <div id="landing">
   <div class="landing-logo">Security Platform Auditor · v2.0</div>
   <div class="landing-title">Select Your Platform</div>
@@ -1359,6 +1366,7 @@ function exportRecommendationsPDF(){
 </div>
 
 <!-- ════════════════ APP SHELL ════════════════ -->
+
 <div id="app">
   <div class="topbar">
     <div class="brand" onclick="showLanding()">
@@ -1366,51 +1374,54 @@ function exportRecommendationsPDF(){
       <div class="brand-text" id="topbar-name">Auditor</div>
     </div>
 
-    <!-- Platform switcher -->
-    <div class="platform-switcher" id="platform-switcher">
-      <div class="ps-trigger" id="ps-trigger" onclick="togglePlatformDropdown()">
-        <span class="ps-icon" id="ps-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
-        <span class="ps-name" id="ps-name">Proofpoint</span>
-        <span class="ps-arrow">▾</span>
-      </div>
-      <div class="ps-dropdown hidden" id="ps-dropdown">
-        <div class="ps-option" data-p="pp"      onclick="switchPlatform('pp')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Proofpoint</div><div class="pso-sub">11 modules</div></div><span class="ps-badge" id="psb-pp" style="background:var(--accent-dim);color:var(--accent)"></span></div>
-        <div class="ps-option" data-p="purview" onclick="switchPlatform('purview')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><rect x="9" y="9" width="9" height="9" rx="1.5" fill="#F25022"/><rect x="22" y="9" width="9" height="9" rx="1.5" fill="#7FBA00"/><rect x="9" y="22" width="9" height="9" rx="1.5" fill="#00A4EF"/><rect x="22" y="22" width="9" height="9" rx="1.5" fill="#FFB900"/></svg></span><div><div class="pso-name">Microsoft Purview</div><div class="pso-sub">6 modules</div></div><span class="ps-badge" id="psb-purview" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
-        <div class="ps-option" data-p="cs"      onclick="switchPlatform('cs')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#C00"/><path d="M10 7 C10 7 24 6 30 13 C36 20 31 28 24 30 L31 36 L24 36 L17 27 C13 27 10 23 10 18 Z" fill="#fff"/><circle cx="24" cy="14" r="2.5" fill="#C00"/></svg></span><div><div class="pso-name">CrowdStrike</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-cs" style="background:var(--red-dim);color:var(--red)"></span></div>
-        <div class="ps-option" data-p="zs"      onclick="switchPlatform('zs')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#005DAA"/><path d="M29 19a7 7 0 00-13.5-2.2A5 5 0 0010 22a5 5 0 005 5h15a5 5 0 000-10z" fill="#fff"/><path d="M13 31h14l-14 0" stroke="#fff" stroke-width="0" fill="none"/></svg></span><div><div class="pso-name">Zscaler</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-zs" style="background:var(--green-dim);color:var(--green)"></span></div>
-        <div class="ps-option" data-p="sym"     onclick="switchPlatform('sym')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#FDB81E"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="#fff" opacity=".95"/><path d="M14 20l4 4 8-8" stroke="#FDB81E" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Symantec DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-sym" style="background:var(--yellow-dim);color:var(--yellow)"></span></div>
-        <div class="ps-option" data-p="fp"      onclick="switchPlatform('fp')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#6B21A8"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="none" stroke="#fff" stroke-width="2" opacity=".7"/><text x="20" y="25" text-anchor="middle" fill="#fff" font-size="15" font-weight="800" font-family="Arial,sans-serif">F</text></svg></span><div><div class="pso-name">Forcepoint DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-fp" style="background:var(--purple-dim);color:var(--purple)"></span></div>
-        <div class="ps-option" data-p="msd"     onclick="switchPlatform('msd')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><path d="M20 5L8 10v9.5C8 27 13.5 33.5 20 35.5 26.5 33.5 32 27 32 19.5V10z" fill="#fff" opacity=".18" stroke="#fff" stroke-width="1.5"/><rect x="14" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="14" y="22" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="22" width="5" height="5" rx=".7" fill="#fff"/></svg></span><div><div class="pso-name">MS Defender</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-msd" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
-        <div class="ps-option" data-p="splunk"  onclick="switchPlatform('splunk')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#1C1C1C"/><path d="M11 11l18 9-18 9" stroke="#FF6600" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Splunk / SIEM</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-splunk" style="background:rgba(247,148,30,.15);color:#f7941e"></span></div>
-        <div class="ps-option" data-p="s1"      onclick="switchPlatform('s1')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4C1D95"/><path d="M27 15C27 11.1 23.9 8 20 8s-7 3.1-7 7c0 3.2 2.2 5 5 5.9l3.1 1 C23.8 22.8 27 24.7 27 28.2 27 32.5 23.9 35 20 35s-7-2.5-7-6.5" stroke="#fff" stroke-width="3.2" stroke-linecap="round" fill="none"/></svg></span><div><div class="pso-name">SentinelOne</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-s1" style="background:rgba(168,85,247,.15);color:#a855f7"></span></div>
-        <div class="ps-option" data-p="okta"    onclick="switchPlatform('okta')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0059B2"/><circle cx="20" cy="20" r="10" stroke="#fff" stroke-width="3.5" fill="none"/><circle cx="20" cy="20" r="4" fill="#fff"/></svg></span><div><div class="pso-name">Okta</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-okta" style="background:rgba(0,125,193,.15);color:#007dc1"></span></div>
-        <div class="ps-option" data-p="azure"   onclick="switchPlatform('azure')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><defs><linearGradient id="azg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0089D6"/><stop offset="100%" stop-color="#003F8A"/></linearGradient></defs><rect width="40" height="40" rx="8" fill="url(#azg)"/><path d="M20 6L8 34h7.5l4.5-9 4.5 9H32z" fill="#fff"/><path d="M16 25.5h8" stroke="#003F8A" stroke-width="2.5" fill="none"/></svg></span><div><div class="pso-name">Azure / Entra</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-azure" style="background:rgba(0,137,214,.15);color:#0089d6"></span></div>
-        <div class="ps-option" data-p="oort"    onclick="switchPlatform('oort')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4F46E5"/><ellipse cx="20" cy="20" rx="13" ry="6" stroke="#fff" stroke-width="2.2" fill="none"/><ellipse cx="20" cy="20" rx="6" ry="13" stroke="#fff" stroke-width="2.2" fill="none"/><circle cx="20" cy="20" r="3.5" fill="#fff"/></svg></span><div><div class="pso-name">OORT</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-oort" style="background:rgba(6,182,212,.15);color:#06b6d4"></span></div>
-        <div class="ps-option" data-p="gws"     onclick="switchPlatform('gws')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.5"/><path d="M20 7a13 13 0 00-9.2 22.2L15 25a8 8 0 0111.2-.7V20h5.8A13 13 0 0020 7z" fill="#4285F4"/><path d="M10.8 29.2L15 25a8 8 0 0010.5.5l4.2 4.2A13 13 0 0110.8 29.2z" fill="#34A853"/><path d="M7 20a13 13 0 003.8 9.2l4.2-4.2A8 8 0 0113 20a8 8 0 011.5-4.7l-4.3-4.3A13 13 0 007 20z" fill="#FBBC05"/><path d="M20 12a8 8 0 015.5 2.2l4.1-4.1A13 13 0 0010.2 11l4.3 4.3A8 8 0 0120 12z" fill="#EA4335"/></svg></span><div><div class="pso-name">Google Workspace</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-gws" style="background:rgba(234,67,53,.15);color:#ea4335"></span></div>
-        <div class="ps-option" data-p="extrahop" onclick="switchPlatform('extrahop')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#087A6E"/><path d="M4 22C7.5 22 7.5 15 12 15 17 15 17 25 21.5 25 26 25 26 12 30 12 34 12 34 20 38 20" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="37" cy="20" r="2.5" fill="#fff"/></svg></span><div><div class="pso-name">ExtraHop</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-extrahop" style="background:rgba(0,180,160,.15);color:#00b4a0"></span></div>
-        <div class="ps-option" data-p="aws"     onclick="switchPlatform('aws')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#232F3E"/><path d="M12 18a7 7 0 011-10.5A9 9 0 0130 9a6 6 0 012.5 11" stroke="#FF9900" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M10 28C14 33 26 33 30 28" stroke="#FF9900" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M27 26.5l3 1.5-1.5 3" stroke="#FF9900" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">AWS</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-aws" style="background:rgba(255,153,0,.15);color:#ff9900"></span></div>
-      </div>
-    </div>
+```
+<!-- Platform switcher -->
+<div class="platform-switcher" id="platform-switcher">
+  <div class="ps-trigger" id="ps-trigger" onclick="togglePlatformDropdown()">
+    <span class="ps-icon" id="ps-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+    <span class="ps-name" id="ps-name">Proofpoint</span>
+    <span class="ps-arrow">▾</span>
+  </div>
+  <div class="ps-dropdown hidden" id="ps-dropdown">
+    <div class="ps-option" data-p="pp"      onclick="switchPlatform('pp')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0D6EFD"/><path d="M20 6L8 11v8.5C8 26.8 13.3 33 20 34.5 26.7 33 32 26.8 32 19.5V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Proofpoint</div><div class="pso-sub">11 modules</div></div><span class="ps-badge" id="psb-pp" style="background:var(--accent-dim);color:var(--accent)"></span></div>
+    <div class="ps-option" data-p="purview" onclick="switchPlatform('purview')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><rect x="9" y="9" width="9" height="9" rx="1.5" fill="#F25022"/><rect x="22" y="9" width="9" height="9" rx="1.5" fill="#7FBA00"/><rect x="9" y="22" width="9" height="9" rx="1.5" fill="#00A4EF"/><rect x="22" y="22" width="9" height="9" rx="1.5" fill="#FFB900"/></svg></span><div><div class="pso-name">Microsoft Purview</div><div class="pso-sub">6 modules</div></div><span class="ps-badge" id="psb-purview" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
+    <div class="ps-option" data-p="cs"      onclick="switchPlatform('cs')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#C00"/><path d="M10 7 C10 7 24 6 30 13 C36 20 31 28 24 30 L31 36 L24 36 L17 27 C13 27 10 23 10 18 Z" fill="#fff"/><circle cx="24" cy="14" r="2.5" fill="#C00"/></svg></span><div><div class="pso-name">CrowdStrike</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-cs" style="background:var(--red-dim);color:var(--red)"></span></div>
+    <div class="ps-option" data-p="zs"      onclick="switchPlatform('zs')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#005DAA"/><path d="M29 19a7 7 0 00-13.5-2.2A5 5 0 0010 22a5 5 0 005 5h15a5 5 0 000-10z" fill="#fff"/><path d="M13 31h14l-14 0" stroke="#fff" stroke-width="0" fill="none"/></svg></span><div><div class="pso-name">Zscaler</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-zs" style="background:var(--green-dim);color:var(--green)"></span></div>
+    <div class="ps-option" data-p="sym"     onclick="switchPlatform('sym')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#FDB81E"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="#fff" opacity=".95"/><path d="M14 20l4 4 8-8" stroke="#FDB81E" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Symantec DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-sym" style="background:var(--yellow-dim);color:var(--yellow)"></span></div>
+    <div class="ps-option" data-p="fp"      onclick="switchPlatform('fp')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#6B21A8"/><path d="M20 5L7 10.5v9C7 26.5 13 33 20 35 27 33 33 26.5 33 19.5v-9z" fill="none" stroke="#fff" stroke-width="2" opacity=".7"/><text x="20" y="25" text-anchor="middle" fill="#fff" font-size="15" font-weight="800" font-family="Arial,sans-serif">F</text></svg></span><div><div class="pso-name">Forcepoint DLP</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-fp" style="background:var(--purple-dim);color:var(--purple)"></span></div>
+    <div class="ps-option" data-p="msd"     onclick="switchPlatform('msd')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0078D4"/><path d="M20 5L8 10v9.5C8 27 13.5 33.5 20 35.5 26.5 33.5 32 27 32 19.5V10z" fill="#fff" opacity=".18" stroke="#fff" stroke-width="1.5"/><rect x="14" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="15" width="5" height="5" rx=".7" fill="#fff"/><rect x="14" y="22" width="5" height="5" rx=".7" fill="#fff"/><rect x="21" y="22" width="5" height="5" rx=".7" fill="#fff"/></svg></span><div><div class="pso-name">MS Defender</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-msd" style="background:rgba(0,120,212,.15);color:#0078d4"></span></div>
+    <div class="ps-option" data-p="splunk"  onclick="switchPlatform('splunk')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#1C1C1C"/><path d="M11 11l18 9-18 9" stroke="#FF6600" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">Splunk / SIEM</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-splunk" style="background:rgba(247,148,30,.15);color:#f7941e"></span></div>
+    <div class="ps-option" data-p="s1"      onclick="switchPlatform('s1')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4C1D95"/><path d="M27 15C27 11.1 23.9 8 20 8s-7 3.1-7 7c0 3.2 2.2 5 5 5.9l3.1 1 C23.8 22.8 27 24.7 27 28.2 27 32.5 23.9 35 20 35s-7-2.5-7-6.5" stroke="#fff" stroke-width="3.2" stroke-linecap="round" fill="none"/></svg></span><div><div class="pso-name">SentinelOne</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-s1" style="background:rgba(168,85,247,.15);color:#a855f7"></span></div>
+    <div class="ps-option" data-p="okta"    onclick="switchPlatform('okta')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#0059B2"/><circle cx="20" cy="20" r="10" stroke="#fff" stroke-width="3.5" fill="none"/><circle cx="20" cy="20" r="4" fill="#fff"/></svg></span><div><div class="pso-name">Okta</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-okta" style="background:rgba(0,125,193,.15);color:#007dc1"></span></div>
+    <div class="ps-option" data-p="azure"   onclick="switchPlatform('azure')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><defs><linearGradient id="azg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0089D6"/><stop offset="100%" stop-color="#003F8A"/></linearGradient></defs><rect width="40" height="40" rx="8" fill="url(#azg)"/><path d="M20 6L8 34h7.5l4.5-9 4.5 9H32z" fill="#fff"/><path d="M16 25.5h8" stroke="#003F8A" stroke-width="2.5" fill="none"/></svg></span><div><div class="pso-name">Azure / Entra</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-azure" style="background:rgba(0,137,214,.15);color:#0089d6"></span></div>
+    <div class="ps-option" data-p="oort"    onclick="switchPlatform('oort')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#4F46E5"/><ellipse cx="20" cy="20" rx="13" ry="6" stroke="#fff" stroke-width="2.2" fill="none"/><ellipse cx="20" cy="20" rx="6" ry="13" stroke="#fff" stroke-width="2.2" fill="none"/><circle cx="20" cy="20" r="3.5" fill="#fff"/></svg></span><div><div class="pso-name">OORT</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-oort" style="background:rgba(6,182,212,.15);color:#06b6d4"></span></div>
+    <div class="ps-option" data-p="gws"     onclick="switchPlatform('gws')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.5"/><path d="M20 7a13 13 0 00-9.2 22.2L15 25a8 8 0 0111.2-.7V20h5.8A13 13 0 0020 7z" fill="#4285F4"/><path d="M10.8 29.2L15 25a8 8 0 0010.5.5l4.2 4.2A13 13 0 0110.8 29.2z" fill="#34A853"/><path d="M7 20a13 13 0 003.8 9.2l4.2-4.2A8 8 0 0113 20a8 8 0 011.5-4.7l-4.3-4.3A13 13 0 007 20z" fill="#FBBC05"/><path d="M20 12a8 8 0 015.5 2.2l4.1-4.1A13 13 0 0010.2 11l4.3 4.3A8 8 0 0120 12z" fill="#EA4335"/></svg></span><div><div class="pso-name">Google Workspace</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-gws" style="background:rgba(234,67,53,.15);color:#ea4335"></span></div>
+    <div class="ps-option" data-p="extrahop" onclick="switchPlatform('extrahop')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#087A6E"/><path d="M4 22C7.5 22 7.5 15 12 15 17 15 17 25 21.5 25 26 25 26 12 30 12 34 12 34 20 38 20" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="37" cy="20" r="2.5" fill="#fff"/></svg></span><div><div class="pso-name">ExtraHop</div><div class="pso-sub">4 modules</div></div><span class="ps-badge" id="psb-extrahop" style="background:rgba(0,180,160,.15);color:#00b4a0"></span></div>
+    <div class="ps-option" data-p="aws"     onclick="switchPlatform('aws')"><span class="pso-icon" style="line-height:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="20" height="20" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="40" height="40" rx="8" fill="#232F3E"/><path d="M12 18a7 7 0 011-10.5A9 9 0 0130 9a6 6 0 012.5 11" stroke="#FF9900" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M10 28C14 33 26 33 30 28" stroke="#FF9900" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M27 26.5l3 1.5-1.5 3" stroke="#FF9900" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="pso-name">AWS</div><div class="pso-sub">5 modules</div></div><span class="ps-badge" id="psb-aws" style="background:rgba(255,153,0,.15);color:#ff9900"></span></div>
+  </div>
+</div>
 
-    <div class="topbar-right">
-      <button class="btn btn-secondary btn-sm" id="btn-demo" onclick="loadCurrentDemo()">⚡ Load Demo</button>
-      <button class="btn btn-secondary btn-sm" onclick="clearAllAcknowledged()" title="Remove all acknowledged suppressions">↺ Reset Acks</button>
-      <button class="btn btn-secondary btn-sm" onclick="exportAllCSV()">⬇ Export CSV</button>
-      <div class="dropdown" style="position:relative;display:inline-block;">
-        <button class="btn btn-secondary btn-sm" onclick="toggleExportMenu(event)" title="Export reports">📊 Export Report ▾</button>
-        <div id="export-menu" style="display:none;position:absolute;right:0;top:110%;background:#1e1535;border:1px solid #4a3a6a;border-radius:8px;min-width:210px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.6);">
-          <div style="padding:6px 0;">
-            <div style="padding:8px 16px 4px;font-size:10px;font-weight:700;color:#9b7ec8;text-transform:uppercase;letter-spacing:1px;">Export Reports</div>
-            <button onclick="exportModuleReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📋 Module Data Report</button>
-            <button onclick="exportRecommendationsPDF()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📄 Recommendations PDF</button>
-            <button onclick="exportWrittenReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">✍️ Written Report (PDF)</button>
-            <button onclick="exportWordReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📝 Written Report (Word)</button>
-            <button onclick="exportRecommendations()" style="width:100%;text-align:left;background:transparent;border:none;color:#9b7ec8;padding:8px 16px 10px;cursor:pointer;font-size:12px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">🌐 Recommendations HTML</button>
-          </div>
-        </div>
+<div class="topbar-right">
+  <button class="btn btn-secondary btn-sm" id="btn-demo" onclick="loadCurrentDemo()">⚡ Load Demo</button>
+  <button class="btn btn-secondary btn-sm" onclick="clearAllAcknowledged()" title="Remove all acknowledged suppressions">↺ Reset Acks</button>
+  <button class="btn btn-secondary btn-sm" onclick="exportAllCSV()">⬇ Export CSV</button>
+  <div class="dropdown" style="position:relative;display:inline-block;">
+    <button class="btn btn-secondary btn-sm" onclick="toggleExportMenu(event)" title="Export reports">📊 Export Report ▾</button>
+    <div id="export-menu" style="display:none;position:absolute;right:0;top:110%;background:#1e1535;border:1px solid #4a3a6a;border-radius:8px;min-width:210px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.6);">
+      <div style="padding:6px 0;">
+        <div style="padding:8px 16px 4px;font-size:10px;font-weight:700;color:#9b7ec8;text-transform:uppercase;letter-spacing:1px;">Export Reports</div>
+        <button onclick="exportModuleReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📋 Module Data Report</button>
+        <button onclick="exportRecommendationsPDF()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📄 Recommendations PDF</button>
+        <button onclick="exportWrittenReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">✍️ Written Report (PDF)</button>
+        <button onclick="exportWordReport()" style="width:100%;text-align:left;background:transparent;border:none;color:#e8d5ff;padding:10px 16px;cursor:pointer;font-size:13px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">📝 Written Report (Word)</button>
+        <button onclick="exportRecommendations()" style="width:100%;text-align:left;background:transparent;border:none;color:#9b7ec8;padding:8px 16px 10px;cursor:pointer;font-size:12px;display:block;" onmouseover="this.style.background='rgba(233,30,140,.2)'" onmouseout="this.style.background='transparent'">🌐 Recommendations HTML</button>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="openImportModal(currentPlatform)">📥 Import Data</button>
     </div>
+  </div>
+  <button class="btn btn-primary btn-sm" onclick="openImportModal(currentPlatform)">📥 Import Data</button>
+</div>
+```
+
   </div>
 
   <div class="layout">
@@ -2364,79 +2375,62 @@ pp:{
       // ── DUPLICATION / CONSOLIDATION DETECTION ───────────────────────────────
       // Strip app prefix to get detection concept
       const _normConcept=name=>{
-        let n=name.replace(/^(O365|GWS|GSUITE|GIT|ZOOM|BOX|DROPBOX|SLACK)\//i,'');
+        let n=name.replace(/^(O365|GWS|GSUITE|GIT|ZOOM)\//i,'');
         n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING|TEST)[-_\s]*$/i,'');
         return n.trim().toLowerCase();
       };
 
-      // Find O365/GWS pairs that could be merged into one multi-app rule
-      // Mergeable = same concept, same severity, same notification config, same remediation TYPE
-      const _getRemNames=r=>(r.remActions||[]).join('|');
-      const _getNotifCount=r=>r.notifTemplates.length;
-
       const byConceptAll={};
-      norm.filter(r=>r.isActive&&!r.isTest).forEach(r=>{
+      norm.forEach(r=>{
         const concept=_normConcept(r.name);
         if(!byConceptAll[concept])byConceptAll[concept]=[];
         byConceptAll[concept].push(r);
       });
 
-      const mergeableGroups=[];
-      const mismatchGroups=[];
-
       Object.entries(byConceptAll).forEach(([concept,rs])=>{
         if(rs.length<2) return;
-        const remSets=new Set(rs.map(r=>_getRemNames(r)));
-        const notifCounts=new Set(rs.map(r=>_getNotifCount(r)));
-        const sevs=new Set(rs.map(r=>r.severity));
+        // Compare configuration between all rules with same concept
+        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
+        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
+        const sevs=rs.map(r=>r.severity);
+        const acts=rs.map(r=>{
+          const raw=rules.find(raw=>raw.name===r.name);
+          return JSON.stringify(((raw&&raw.activities)||[]).map(a=>a.name||a).sort());
+        });
 
-        // Truly mergeable: same remediation actions, same notification count, same severity
-        if(remSets.size===1&&notifCounts.size===1&&sevs.size===1){
-          mergeableGroups.push({concept,rules:rs});
-        } else if(remSets.size>1){
-          // Different remediation per app = intentional, but flag if notif count differs too
-          if(notifCounts.size>1){
-            mismatchGroups.push({concept,rules:rs,issue:'notification count differs between app variants'});
-          }
+        const notifDiff=new Set(notifSigs).size>1;
+        const remDiff=new Set(remSigs).size>1;
+        const sevDiff=new Set(sevs).size>1;
+        const actDiff=new Set(acts).size>1;
+
+        // Platform-specific remediation is expected: O365=Revoke Session, GWS=Suspend user
+        const hasPlatformSpecificRem=remDiff&&rs.some(r=>r.remActions.includes('Revoke Session'))&&rs.some(r=>r.remActions.includes('Suspend user'));
+        // If only the remediation differs and it's the expected O365/GWS split, it's still mergeable
+        const mergeable=!sevDiff&&!actDiff&&(!remDiff||hasPlatformSpecificRem);
+
+        const ruleNames=rs.map(r=>r.name).join(' + ');
+        const appList=rs.map(r=>r.appNames).join(' + ');
+
+        if(mergeable&&!notifDiff){
+          // Perfect merge — identical config, just different app
+          issues.dupEffort.push({sev:'info',
+            name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`${rs.length} rules are identical except for the app — can be merged into one multi-app rule. Rules: ${ruleNames}`,
+            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:`In Proofpoint CASB, edit one rule and add the second app under "Applications and Activity Type", then delete the other. No coverage loss.`});
+        } else if(mergeable&&hasPlatformSpecificRem){
+          // Mergeable but needs both remediation actions
+          issues.dupEffort.push({sev:'info',
+            name:`Consolidate (dual remediation): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`Can merge into one multi-app rule but requires both remediation actions: ${rs.map(r=>r.appNames+' → '+r.remActions.join('/')).join(', ')}. Rules: ${ruleNames}`,
+            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:`Merge into one rule covering both apps. Add both "Revoke Session" (O365) and "Suspend user" (GWS) as remediation actions — Proofpoint applies the correct action per app at runtime.`});
         }
       });
 
-      // Flag mergeable pairs as consolidation opportunities
-      if(mergeableGroups.length>0){
-        // Group into one summary finding
-        const highPri=mergeableGroups.filter(g=>['CRITICAL','HIGH'].includes(g.rules[0].severity));
-        const allNames=mergeableGroups.map(g=>g.rules.map(r=>r.name).join(' + ')).join('; ');
-        issues.dupEffort.push({sev:'warning',
-          name:`${mergeableGroups.length} rule pairs can be consolidated into multi-app rules`,
-          detail:`Proofpoint CASB allows a single rule to cover multiple apps. ${mergeableGroups.length} pairs of O365/GWS rules have identical configuration (same severity, notifications, and remediation) and could each be merged into one rule — reducing ${mergeableGroups.length*2} rules to ${mergeableGroups.length}. Examples: ${mergeableGroups.slice(0,5).map(g=>g.rules.map(r=>r.name.split('/').slice(1).join('/')).filter((v,i,a)=>a.indexOf(v)===i).join('/')).join(', ')}`,
-          tags:[{v:`${mergeableGroups.length} PAIRS`,c:'y'},{v:`SAVE ${mergeableGroups.length} RULES`,c:'g'}],
-          rec:`In Proofpoint CASB, edit each pair and add the second app to the Applications list. This halves your rule count with no coverage loss. Start with the ${highPri.length} CRITICAL/HIGH pairs for maximum impact.`});
-
-        // Also add individual findings for each mergeable pair
-        mergeableGroups.forEach(({concept,rules})=>{
-          const sev=rules[0].severity;
-          const ruleNames=rules.map(r=>r.name).join(' + ');
-          const apps=rules.map(r=>(r.applications||r.appNames||'').toString()).join(' + ');
-          issues.dupEffort.push({sev:'info',
-            name:`Consolidate: ${rules[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`${rules.length} separate rules detect the same thing on different apps: ${ruleNames}. Identical severity (${sev}), notifications, and remediation — can be merged into one multi-app rule.`,
-            tags:[{v:'CONSOLIDATE',c:'b'},{v:sev,c:sev==='CRITICAL'?'r':sev==='HIGH'?'y':'b'}],
-            rec:'Edit one rule, add the other app to the Applications list, then delete the redundant rule.'});
-        });
-      }
-
-      // Flag config mismatches (notification count differs between app variants)
-      mismatchGroups.forEach(({concept,rules,issue})=>{
-        issues.dupEffort.push({sev:'info',
-          name:`Config drift: ${concept.slice(0,50)}`,
-          detail:`O365 and GWS variants of this rule have different notification counts. ${issue}. Rules: ${rules.map(r=>r.name).join(', ')}`,
-          tags:[{v:'CONFIG DRIFT',c:'y'}],
-          rec:'Review notification templates across both app variants to ensure consistent alerting.'});
-      });
-
-      // Silent lower tiers — generate noise with no value
+      // Silent lower tiers — same detection at different confidence levels where lower tiers are silent
       const byBaseConcept={};
-      norm.filter(r=>r.isActive&&!r.isTest).forEach(r=>{
+      norm.filter(r=>!r.isTest).forEach(r=>{
         let base=r.name.replace(/^(O365|GWS|GSUITE)\//i,'');
         base=base.replace(/\s*[\/-]\s*(Definite|Probable|High|Medium|Low|Critical).*$/i,'');
         base=base.replace(/\s*\([^)]*\)\s*$/,'').trim().toLowerCase();
@@ -2448,30 +2442,27 @@ pp:{
         if(rs.length<2||seenSilentBase.has(base)) return;
         const hasHighNotif=rs.some(r=>['CRITICAL','HIGH'].includes(r.severity)&&r.hasNotification);
         const silentLow=rs.filter(r=>['MEDIUM','LOW'].includes(r.severity)&&!r.hasNotification&&!r.hasRemediation);
-        // Only flag unique base concepts (not per-app)
         const uniqueSilent=[...new Map(silentLow.map(r=>[r.name.replace(/^(O365|GWS)\//i,''),r])).values()];
         if(hasHighNotif&&uniqueSilent.length>0){
           seenSilentBase.add(base);
           issues.dupEffort.push({sev:'info',
-            name:`Silent lower tiers: ${base.slice(0,45)}`,
-            detail:`The HIGH/CRITICAL tier alerts your team but the ${uniqueSilent.map(r=>r.severity).join('/')} tiers fire silently (no notification, no remediation): ${uniqueSilent.map(r=>r.name).join(', ')}`,
-            tags:[{v:'SILENT TIER',c:'b'}],
-            rec:'Either add notifications to the lower tiers to make them useful, or remove them if the higher-severity tier already covers the meaningful detections.'});
+            name:`Silent lower tiers: ${base.slice(0,48)}`,
+            detail:`The HIGH/CRITICAL tier alerts your team, but the MEDIUM/LOW tiers fire with no notification and no remediation: ${uniqueSilent.map(r=>r.name).join(', ')}`,
+            tags:[{v:'SILENT LOWER TIER',c:'b'}],
+            rec:'Either add notifications to the lower tiers to make them actionable, or disable them — silent rules that generate incidents nobody sees add noise without value.'});
         }
       });
 
       // TAMU-specific variants alongside standard rules
-      const tamuRules=norm.filter(r=>r.isActive&&!r.isTest&&(r.name.includes('TAMUResearch')||r.name.includes('ResearchWords')));
+      const tamuRules=norm.filter(r=>!r.isTest&&(r.name.includes('TAMUResearch')||r.name.includes('ResearchWords')));
       if(tamuRules.length>0){
         const uniqueTamu=[...new Map(tamuRules.map(r=>[_normConcept(r.name),r])).values()];
         issues.dupEffort.push({sev:'info',
-          name:`${uniqueTamu.length} TAMU-specific classifiers overlap standard detections`,
-          detail:`Rules using TAMUResearchWords and ResearchWordsExternalShare classifiers run alongside standard detection rules covering the same activities (Massive Download, Broad Sharing, Deletions). Total TAMU-specific rules: ${tamuRules.length}`,
+          name:`${uniqueTamu.length} TAMU-specific classifier variants alongside standard rules`,
+          detail:`Rules using TAMUResearchWords and ResearchWordsExternalShare classifiers detect the same activities (Massive Download, Broad Sharing, Deletions) as your standard DLP rules, but with TAMU-specific classifiers. ${tamuRules.length} total TAMU-specific rules.`,
           tags:[{v:'TAMU CLASSIFIER',c:'b'},{v:`${tamuRules.length} rules`}],
-          rec:'Verify whether these TAMU-specific classifiers detect events the standard rules miss. If the standard rules already cover them, consolidate to reduce rule count and incident noise.'});
-      }
-
-      return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:2,coverage:1,dupEffort:3}),rules,'rules');
+          rec:'Verify whether these TAMU-specific classifiers detect events the standard rules miss. If the standard rules already cover them, these rules can be removed to reduce incident noise.'});
+      }      return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:2,coverage:1,dupEffort:3}),rules,'rules');
     },
     render(pid,mid,result){
       const _norm=r=>{
@@ -4104,116 +4095,121 @@ function exportModuleReport(){
   }
 </style></head><body>`;
 
-  // Cover
-  html+=`<div class="print-bar"><span class="print-bar-title">${p.name} — Module Data Report</span><button class="pbtn pbtn-sec" onclick="window.close()">✕ Close</button><button class="pbtn pbtn-primary" onclick="window.print()">🖨 Print / Save PDF</button></div>`;
-  html+=`<div class="cover">
-    <h1>${p.name} — Module Data Report</h1>
-    <div class="sub">Security Platform Audit — Detailed Module Analysis</div>
-    <div class="meta">Generated ${now} &nbsp;·&nbsp; ${data.length} modules analysed</div>
+// Cover
+html+=`<div class="print-bar"><span class="print-bar-title">${p.name} — Module Data Report</span><button class="pbtn pbtn-sec" onclick="window.close()">✕ Close</button><button class="pbtn pbtn-primary" onclick="window.print()">🖨 Print / Save PDF</button></div>`;
+html+=`<div class="cover">
+<h1>${p.name} — Module Data Report</h1>
+<div class="sub">Security Platform Audit — Detailed Module Analysis</div>
+<div class="meta">Generated ${now}  ·  ${data.length} modules analysed</div>
+
   </div>`;
 
-  // TOC
-  html+=`<div class="toc"><h2>Contents</h2>`;
-  data.forEach(({mid,label,result,isDemo})=>{
-    const score=result?.score??0;
-    const scoreColor=score>=80?'#2e7d32':score>=60?'#f57c00':'#e53935';
-    html+=`<div class="toc-item"><span>${label}${isDemo?' <em>(demo)</em>':''}</span><span class="toc-score" style="color:${scoreColor}">${score}/100</span></div>`;
-  });
-  html+='</div>';
+// TOC
+html+=`<div class="toc"><h2>Contents</h2>`;
+data.forEach(({mid,label,result,isDemo})=>{
+const score=result?.score??0;
+const scoreColor=score>=80?’#2e7d32’:score>=60?’#f57c00’:’#e53935’;
+html+=`<div class="toc-item"><span>${label}${isDemo?' <em>(demo)</em>':''}</span><span class="toc-score" style="color:${scoreColor}">${score}/100</span></div>`;
+});
+html+=’</div>’;
 
-  // Module sections
-  data.forEach(({mid,label,result,isDemo,rawData})=>{
-    if(!result) return;
-    const score=result.score??0;
-    const scoreColor=score>=80?'#2e7d32':score>=60?'#f57c00':'#e53935';
-    const totalIssues=Object.values(result.issues||{}).flat().length;
-    const ruleCount=Array.isArray(result.rules)?result.rules.length:
-      Array.isArray(result.items)?result.items.length:
-      Array.isArray(rawData)?rawData.length:0;
+// Module sections
+data.forEach(({mid,label,result,isDemo,rawData})=>{
+if(!result) return;
+const score=result.score??0;
+const scoreColor=score>=80?’#2e7d32’:score>=60?’#f57c00’:’#e53935’;
+const totalIssues=Object.values(result.issues||{}).flat().length;
+const ruleCount=Array.isArray(result.rules)?result.rules.length:
+Array.isArray(result.items)?result.items.length:
+Array.isArray(rawData)?rawData.length:0;
 
-    html+=`<div class="section">
-      <div class="section-header">
-        <div>
-          <div class="section-title">${label}</div>
-          <div style="font-size:12px;color:#888;margin-top:2px;">${totalIssues} finding${totalIssues!==1?'s':''} · ${ruleCount} records</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:16px;">
-          <span class="section-badge ${isDemo?'badge-demo':'badge-real'}">${isDemo?'DEMO DATA':'REAL DATA'}</span>
-          <div class="score-ring"><div><div class="score-val" style="color:${scoreColor}">${score}</div><div class="score-lbl">/ 100</div></div></div>
-        </div>
+```
+html+=`<div class="section">
+  <div class="section-header">
+    <div>
+      <div class="section-title">${label}</div>
+      <div style="font-size:12px;color:#888;margin-top:2px;">${totalIssues} finding${totalIssues!==1?'s':''} · ${ruleCount} records</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <span class="section-badge ${isDemo?'badge-demo':'badge-real'}">${isDemo?'DEMO DATA':'REAL DATA'}</span>
+      <div class="score-ring"><div><div class="score-val" style="color:${scoreColor}">${score}</div><div class="score-lbl">/ 100</div></div></div>
+    </div>
+  </div>`;
+
+// Stats grid — severity breakdown
+const allIssues=Object.values(result.issues||{}).flat();
+const critCount=allIssues.filter(i=>i.sev==='critical').length;
+const warnCount=allIssues.filter(i=>i.sev==='warning').length;
+const infoCount=allIssues.filter(i=>i.sev==='info').length;
+html+=`<div class="stats-grid">
+  <div class="stat-box"><div class="stat-val blue">${ruleCount}</div><div class="stat-lbl">Total Records</div></div>
+  <div class="stat-box"><div class="stat-val ${critCount>0?'red':'green'}">${critCount}</div><div class="stat-lbl">Critical Findings</div></div>
+  <div class="stat-box"><div class="stat-val ${warnCount>0?'yellow':'green'}">${warnCount}</div><div class="stat-lbl">Warnings</div></div>
+  <div class="stat-box"><div class="stat-val">${infoCount}</div><div class="stat-lbl">Info</div></div>
+  <div class="stat-box"><div class="stat-val" style="color:${scoreColor}">${score}</div><div class="stat-lbl">Health Score</div></div>
+</div>`;
+
+// Issues per section
+html+='<div class="issues-section">';
+const issueEntries=Object.entries(result.issues||{});
+const hasAny=allIssues.length>0;
+if(!hasAny){
+  html+='<div class="no-issues">✅ No issues found in this module</div>';
+} else {
+  issueEntries.forEach(([key,issues])=>{
+    if(!issues.length) return;
+    const sectionName=key.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
+    html+=`<h3>${sectionName} (${issues.length})</h3>`;
+    issues.forEach(issue=>{
+      const sev=issue.sev||'info';
+      html+=`<div class="issue-item ${sev}">
+        <span class="issue-sev" style="background:${_sevColor(sev)}">${_sevLabel(sev)}</span>
+        <div class="issue-name">${issue.name||'—'}</div>
+        <div class="issue-detail">${issue.detail||''}</div>
+        ${issue.rec?`<div class="issue-rec">→ ${issue.rec}</div>`:''}
       </div>`;
-
-    // Stats grid — severity breakdown
-    const allIssues=Object.values(result.issues||{}).flat();
-    const critCount=allIssues.filter(i=>i.sev==='critical').length;
-    const warnCount=allIssues.filter(i=>i.sev==='warning').length;
-    const infoCount=allIssues.filter(i=>i.sev==='info').length;
-    html+=`<div class="stats-grid">
-      <div class="stat-box"><div class="stat-val blue">${ruleCount}</div><div class="stat-lbl">Total Records</div></div>
-      <div class="stat-box"><div class="stat-val ${critCount>0?'red':'green'}">${critCount}</div><div class="stat-lbl">Critical Findings</div></div>
-      <div class="stat-box"><div class="stat-val ${warnCount>0?'yellow':'green'}">${warnCount}</div><div class="stat-lbl">Warnings</div></div>
-      <div class="stat-box"><div class="stat-val">${infoCount}</div><div class="stat-lbl">Info</div></div>
-      <div class="stat-box"><div class="stat-val" style="color:${scoreColor}">${score}</div><div class="stat-lbl">Health Score</div></div>
-    </div>`;
-
-    // Issues per section
-    html+='<div class="issues-section">';
-    const issueEntries=Object.entries(result.issues||{});
-    const hasAny=allIssues.length>0;
-    if(!hasAny){
-      html+='<div class="no-issues">✅ No issues found in this module</div>';
-    } else {
-      issueEntries.forEach(([key,issues])=>{
-        if(!issues.length) return;
-        const sectionName=key.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
-        html+=`<h3>${sectionName} (${issues.length})</h3>`;
-        issues.forEach(issue=>{
-          const sev=issue.sev||'info';
-          html+=`<div class="issue-item ${sev}">
-            <span class="issue-sev" style="background:${_sevColor(sev)}">${_sevLabel(sev)}</span>
-            <div class="issue-name">${issue.name||'—'}</div>
-            <div class="issue-detail">${issue.detail||''}</div>
-            ${issue.rec?`<div class="issue-rec">→ ${issue.rec}</div>`:''}
-          </div>`;
-        });
-      });
-    }
-    html+='</div></div>';
+    });
   });
+}
+html+='</div></div>';
+```
 
-  html+=`<div class="footer">Security Platform Auditor &nbsp;·&nbsp; ${p.name} &nbsp;·&nbsp; ${now}</div></body></html>`;
+});
 
-  const blob=new Blob([html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  window.open(url,'_blank');
+html+=`<div class="footer">Security Platform Auditor &nbsp;·&nbsp; ${p.name} &nbsp;·&nbsp; ${now}</div></body></html>`;
+
+const blob=new Blob([html],{type:‘text/html’});
+const url=URL.createObjectURL(blob);
+window.open(url,’_blank’);
 }
 
 // ── Recommendations Report ────────────────────────────────────────────────────
 function exportRecommendations(){
-  document.getElementById('export-menu').style.display='none';
-  const pid=currentPlatform;
-  const p=PLATFORMS[pid];
-  const data=_getExportData(pid,true);
-  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+document.getElementById(‘export-menu’).style.display=‘none’;
+const pid=currentPlatform;
+const p=PLATFORMS[pid];
+const data=_getExportData(pid,true);
+const now=new Date().toLocaleDateString(‘en-US’,{year:‘numeric’,month:‘long’,day:‘numeric’});
 
-  // Flatten all issues across all modules, sorted critical first
-  const allFindings=[];
-  data.forEach(({mid,label,result,isDemo})=>{
-    if(!result) return;
-    Object.entries(result.issues||{}).forEach(([key,issues])=>{
-      issues.forEach(issue=>{
-        allFindings.push({module:label,mid,isDemo,issue,key});
-      });
-    });
-  });
-  const sevOrder={critical:0,warning:1,info:2};
-  allFindings.sort((a,b)=>(sevOrder[a.issue.sev]??3)-(sevOrder[b.issue.sev]??3));
+// Flatten all issues across all modules, sorted critical first
+const allFindings=[];
+data.forEach(({mid,label,result,isDemo})=>{
+if(!result) return;
+Object.entries(result.issues||{}).forEach(([key,issues])=>{
+issues.forEach(issue=>{
+allFindings.push({module:label,mid,isDemo,issue,key});
+});
+});
+});
+const sevOrder={critical:0,warning:1,info:2};
+allFindings.sort((a,b)=>(sevOrder[a.issue.sev]??3)-(sevOrder[b.issue.sev]??3));
 
-  const critCount=allFindings.filter(f=>f.issue.sev==='critical').length;
-  const warnCount=allFindings.filter(f=>f.issue.sev==='warning').length;
-  const infoCount=allFindings.filter(f=>f.issue.sev==='info').length;
+const critCount=allFindings.filter(f=>f.issue.sev===‘critical’).length;
+const warnCount=allFindings.filter(f=>f.issue.sev===‘warning’).length;
+const infoCount=allFindings.filter(f=>f.issue.sev===‘info’).length;
 
-  let html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+let html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+
 <title>${p.name} — Recommendations Report</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -4260,57 +4256,46 @@ function exportRecommendations(){
   }
 </style></head><body>`;
 
-  html+=`<div class="print-bar"><span class="print-bar-title">${p.name} — Recommendations Report</span><button class="pbtn pbtn-sec" onclick="window.close()">✕ Close</button><button class="pbtn pbtn-primary" onclick="window.print()">🖨 Print / Save PDF</button></div>`;
-  html+=`<div class="cover">
-    <h1>${p.name} — Recommendations Report</h1>
-    <div class="sub">Security findings and remediation guidance across all modules</div>
-    <div class="meta">Generated ${now} &nbsp;·&nbsp; ${allFindings.length} total findings</div>
+html+=`<div class="print-bar"><span class="print-bar-title">${p.name} — Recommendations Report</span><button class="pbtn pbtn-sec" onclick="window.close()">✕ Close</button><button class="pbtn pbtn-primary" onclick="window.print()">🖨 Print / Save PDF</button></div>`;
+html+=`<div class="cover">
+<h1>${p.name} — Recommendations Report</h1>
+<div class="sub">Security findings and remediation guidance across all modules</div>
+<div class="meta">Generated ${now}  ·  ${allFindings.length} total findings</div>
+
   </div>`;
 
-  html+=`<div class="summary">
-    <div class="sum-box"><div class="sum-val red">${critCount}</div><div class="sum-lbl">Critical</div></div>
-    <div class="sum-box"><div class="sum-val yellow">${warnCount}</div><div class="sum-lbl">Warnings</div></div>
-    <div class="sum-box"><div class="sum-val blue">${infoCount}</div><div class="sum-lbl">Info</div></div>
-    <div class="sum-box"><div class="sum-val">${allFindings.length}</div><div class="sum-lbl">Total Findings</div></div>
-    <div style="margin-left:auto;font-size:13px;color:#888;">Sorted by severity · Modules: ${data.length}</div>
+html+=`<div class="summary">
+<div class="sum-box"><div class="sum-val red">${critCount}</div><div class="sum-lbl">Critical</div></div>
+<div class="sum-box"><div class="sum-val yellow">${warnCount}</div><div class="sum-lbl">Warnings</div></div>
+<div class="sum-box"><div class="sum-val blue">${infoCount}</div><div class="sum-lbl">Info</div></div>
+<div class="sum-box"><div class="sum-val">${allFindings.length}</div><div class="sum-lbl">Total Findings</div></div>
+<div style="margin-left:auto;font-size:13px;color:#888;">Sorted by severity · Modules: ${data.length}</div>
+
   </div>`;
 
-  if(allFindings.length===0){
-    html+='<div class="no-findings">✅ No findings across any module — your platform looks healthy!</div>';
-  } else {
-    html+='<div class="findings">';
-    let lastSev='';
-    allFindings.forEach(({module,isDemo,issue})=>{
-      const sev=issue.sev||'info';
-      if(sev!==lastSev){
-        const labels={critical:'🔴 Critical Findings',warning:'🟡 Warnings',info:'🔵 Info'};
-        html+=`</div><div class="section-divider">${labels[sev]||sev}</div><div class="findings">`;
-        lastSev=sev;
-      }
-      const tags=(issue.tags||[]).map(t=>`<span class="tag">${t.v||t}</span>`).join('');
-      html+=`<div class="finding ${sev}">
-        <div class="finding-header">
-          <div>
-            <div class="finding-name">${issue.name||'—'}</div>
-            <div class="finding-module">${module}${isDemo?' · demo data':''}</div>
-          </div>
-          <span class="sev-pill" style="background:${_sevColor(sev)}">${_sevLabel(sev)}</span>
-        </div>
-        <div class="finding-body">
-          <div class="finding-detail">${issue.detail||''}</div>
-          ${issue.rec?`<div class="finding-rec">${issue.rec}</div>`:''}
-          ${tags?`<div class="finding-tags">${tags}</div>`:''}
-        </div>
-      </div>`;
-    });
-    html+='</div>';
-  }
+if(allFindings.length===0){
+html+=’<div class="no-findings">✅ No findings across any module — your platform looks healthy!</div>’;
+} else {
+html+=’<div class="findings">’;
+let lastSev=’’;
+allFindings.forEach(({module,isDemo,issue})=>{
+const sev=issue.sev||‘info’;
+if(sev!==lastSev){
+const labels={critical:‘🔴 Critical Findings’,warning:‘🟡 Warnings’,info:‘🔵 Info’};
+html+=`</div><div class="section-divider">${labels[sev]||sev}</div><div class="findings">`;
+lastSev=sev;
+}
+const tags=(issue.tags||[]).map(t=>`<span class="tag">${t.v||t}</span>`).join(’’);
+html+=`<div class="finding ${sev}"> <div class="finding-header"> <div> <div class="finding-name">${issue.name||'—'}</div> <div class="finding-module">${module}${isDemo?' · demo data':''}</div> </div> <span class="sev-pill" style="background:${_sevColor(sev)}">${_sevLabel(sev)}</span> </div> <div class="finding-body"> <div class="finding-detail">${issue.detail||''}</div> ${issue.rec?`<div class="finding-rec">${issue.rec}</div>`:''} ${tags?`<div class="finding-tags">${tags}</div>`:''} </div> </div>`;
+});
+html+=’</div>’;
+}
 
-  html+=`<div class="footer">Security Platform Auditor &nbsp;·&nbsp; ${p.name} &nbsp;·&nbsp; ${now}</div></body></html>`;
+html+=`<div class="footer">Security Platform Auditor &nbsp;·&nbsp; ${p.name} &nbsp;·&nbsp; ${now}</div></body></html>`;
 
-  const blob=new Blob([html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  window.open(url,'_blank');
+const blob=new Blob([html],{type:‘text/html’});
+const url=URL.createObjectURL(blob);
+window.open(url,’_blank’);
 }
 </script>
 
@@ -5344,6 +5329,7 @@ MODULE_DEFS.aws = {
 </script>
 
 <!-- ── Import Modal ─────────────────────────────────────────────── -->
+
 <div class="import-overlay" id="importModal" onclick="if(event.target===this)closeImportModal()">
   <div class="import-box">
     <div class="import-head">
