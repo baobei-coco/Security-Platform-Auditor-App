@@ -391,7 +391,7 @@ function exportWrittenReport(){
     });
   }
 
-  const testInProd=allFindings.filter(f=>f.issue.key==='testInProd'||f.issue.key==='testRules');
+  const testInProd=allFindings.filter(f=>f.key==='testInProd'||f.key==='testRules');
   if(testInProd.length){
     shortTermRecs.push({
       title:'Remove or Formalise Test Rules in Production',
@@ -401,7 +401,7 @@ function exportWrittenReport(){
     });
   }
 
-  const inactive=allFindings.filter(f=>f.issue.key==='inactive');
+  const inactive=allFindings.filter(f=>f.key==='inactive');
   if(inactive.length){
     shortTermRecs.push({
       title:'Review and Clean Up Inactive Rules',
@@ -817,13 +817,13 @@ async function exportWordReport(){
   if(noRemCrit) allRecs.push({p:'Immediate',c:'c62828',t:'Configure Automated Remediation for Critical Rules',d:noRemCrit+' critical-severity rule'+(noRemCrit>1?'s are':' is')+' active without automated remediation. Configure responses such as session revocation or account suspension to reduce response time and limit damage during active incidents.'});
   const silentCount=allFindings.filter(f=>f.issue.name&&f.issue.name.toLowerCase().includes('silent')).length;
   if(silentCount) allRecs.push({p:'Immediate',c:'c62828',t:'Enable Notifications on High-Severity Rules',d:silentCount+' rule'+(silentCount>1?'s':'')+' fire silently with no notification templates. Add platform notifications to all high and critical severity rules to ensure real-time alerting.'});
-  const testProdCount=allFindings.filter(f=>f.issue.key==='testInProd'||f.issue.key==='testRules').length;
+  const testProdCount=allFindings.filter(f=>f.key==='testInProd'||f.key==='testRules').length;
   if(testProdCount) allRecs.push({p:'Short-term',c:'e65100',t:'Remove or Formalise Test Rules in Production',d:testProdCount+' test or PoC rule'+(testProdCount>1?'s are':' is')+' active in production. Review each and rename to production conventions, disable, or delete as appropriate.'});
-  const inactiveCount=allFindings.filter(f=>f.issue.key==='inactive').length;
+  const inactiveCount=allFindings.filter(f=>f.key==='inactive').length;
   if(inactiveCount) allRecs.push({p:'Short-term',c:'e65100',t:'Review and Clean Up Inactive Rules',d:inactiveCount+' rule'+(inactiveCount>1?'s are':' is')+' currently inactive. Review to confirm intentional or remove to reduce configuration complexity.'});
-  const mergeFindCount=allFindings.filter(f=>f.issue.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('consolidate')).length;
+  const mergeFindCount=allFindings.filter(f=>f.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('consolidate')).length;
   if(mergeFindCount) allRecs.push({p:'Short-term',c:'e65100',t:'Consolidate '+mergeFindCount+' Duplicate O365/GWS Rule Pairs',d:mergeFindCount+' pairs of O365 and GWS rules have identical configuration and can each be merged into a single multi-app rule — reducing your rule count by '+mergeFindCount+' with zero coverage loss. Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate.'});
-  const silentTierCount=allFindings.filter(f=>f.issue.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('silent lower tier')).length;
+  const silentTierCount=allFindings.filter(f=>f.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('silent lower tier')).length;
   if(silentTierCount) allRecs.push({p:'Short-term',c:'e65100',t:'Resolve '+silentTierCount+' Silent Lower-Tier Rule Group'+(silentTierCount>1?'s':''),d:silentTierCount+' detection concept'+(silentTierCount>1?'s have':' has')+' MEDIUM/LOW severity tiers that fire silently with no notification or remediation. Add notifications to make them actionable or disable them to reduce noise.'});
   allRecs.push({p:'Long-term',c:'1565c0',t:'Establish a Quarterly Security Rule Review Cycle',d:'Implement a structured quarterly review of all security rules covering effectiveness, threat alignment, remediation appropriateness, and removal of obsolete rules.'});
   if(demoData.length) allRecs.push({p:'Long-term',c:'1565c0',t:'Import Real Data for '+demoData.length+' Demo Module'+(demoData.length>1?'s':''),d:demoData.map(d=>d.label).join(', ')+(demoData.length>1?' are':' is')+' showing demo data. Export and import real configuration data to make findings fully actionable.'});
