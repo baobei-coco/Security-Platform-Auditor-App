@@ -2555,7 +2555,7 @@ pp:{
           detail:`Shares priority ${p} with ${g.length-1} other rule(s).`,
           tags:[{v:`PRIORITY ${p}`,c:'y'}],rec:'Assign unique priorities.'}));
       });
-      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6,dupPriority:5}),rules,'rules');
+      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:2,dupPriority:5}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
@@ -2903,7 +2903,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotific
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
       });
-      return makeResult(issues,calcScore(issues,{noRemediation:20,noNotification:10,inactive:5,testRules:6}),rules,'rules');
+      return makeResult(issues,calcScore(issues,{noRemediation:20,noNotification:10,inactive:5,testRules:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()}};
@@ -3071,7 +3071,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
       });
-      return makeResult(issues,calcScore(issues,{noRemediation:20,noNotification:10,inactive:5,testRules:6}),rules,'rules');
+      return makeResult(issues,calcScore(issues,{noRemediation:20,noNotification:10,inactive:5,testRules:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()}};
@@ -3136,7 +3136,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
       });
-      return makeResult(issues,calcScore(issues,{noRemediation:20,noNotification:10,inactive:5,testRules:6}),rules,'rules');
+      return makeResult(issues,calcScore(issues,{noRemediation:20,noNotification:10,inactive:5,testRules:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()}};
@@ -3365,7 +3365,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
       });
-      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6}),rules,'rules');
+      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
