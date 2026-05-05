@@ -2438,7 +2438,7 @@ pp:{
         const uniqueSilent=[...new Map(silentLow.map(r=>[r.name.replace(/^(O365|GWS)\//i,''),r])).values()];
         if(hasHighNotif&&uniqueSilent.length>0){
           seenSilentBase.add(base);
-          issues.dupEffort.push({sev:'info',
+          if(issues.dupEffort) issues.dupEffort.push({sev:'info',
             name:`Silent lower tiers: ${base.slice(0,48)}`,
             detail:`The HIGH/CRITICAL tier alerts your team, but the MEDIUM/LOW tiers fire with no notification and no remediation: ${uniqueSilent.map(r=>r.name).join(', ')}`,
             tags:[{v:'SILENT LOWER TIER',c:'b'}],
@@ -2450,7 +2450,7 @@ pp:{
       const tamuRules=norm.filter(r=>!r.isTest&&(r.name.includes('TAMUResearch')||r.name.includes('ResearchWords')));
       if(tamuRules.length>0){
         const uniqueTamu=[...new Map(tamuRules.map(r=>[_normConcept(r.name),r])).values()];
-        issues.dupEffort.push({sev:'info',
+        if(issues.dupEffort) issues.dupEffort.push({sev:'info',
           name:`${uniqueTamu.length} TAMU-specific classifier variants alongside standard rules`,
           detail:`Rules using TAMUResearchWords and ResearchWordsExternalShare classifiers detect the same activities (Massive Download, Broad Sharing, Deletions) as your standard DLP rules, but with TAMU-specific classifiers. ${tamuRules.length} total TAMU-specific rules.`,
           tags:[{v:'TAMU CLASSIFIER',c:'b'},{v:`${tamuRules.length} rules`}],
@@ -2666,7 +2666,7 @@ pp:{
         if(!mergeable) return;
         const ruleNames=rs.map(r=>r.name).join(' + ');
         if(!remDiff&&new Set(notifSigs).size===1){
-          issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+          if(issues.dupEffort) issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
             detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
             tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
             rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
@@ -2996,7 +2996,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotific
         if(!mergeable) return;
         const ruleNames=rs.map(r=>r.name).join(' + ');
         if(!remDiff&&new Set(notifSigs).size===1){
-          issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+          if(issues.dupEffort) issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
             detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
             tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
             rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
@@ -3230,7 +3230,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
           activities,threats,tags:(r.tags||[])};
       };
       const norm=rules.map(r=>_norm(r));
-      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
+      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[],dupEffort:[]};
 
       const _isAppTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
       norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isAppTest(r)).forEach(r=>{
@@ -3279,7 +3279,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
         if(!mergeable) return;
         const ruleNames=rs.map(r=>r.name).join(' + ');
         if(!remDiff&&new Set(notifSigs).size===1){
-          issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+          if(issues.dupEffort) issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
             detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
             tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
             rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
