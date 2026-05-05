@@ -821,6 +821,10 @@ async function exportWordReport(){
   if(testProdCount) allRecs.push({p:'Short-term',c:'e65100',t:'Remove or Formalise Test Rules in Production',d:testProdCount+' test or PoC rule'+(testProdCount>1?'s are':' is')+' active in production. Review each and rename to production conventions, disable, or delete as appropriate.'});
   const inactiveCount=allFindings.filter(f=>f.issue.key==='inactive').length;
   if(inactiveCount) allRecs.push({p:'Short-term',c:'e65100',t:'Review and Clean Up Inactive Rules',d:inactiveCount+' rule'+(inactiveCount>1?'s are':' is')+' currently inactive. Review to confirm intentional or remove to reduce configuration complexity.'});
+  const mergeFindCount=allFindings.filter(f=>f.issue.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('consolidate')).length;
+  if(mergeFindCount) allRecs.push({p:'Short-term',c:'e65100',t:'Consolidate '+mergeFindCount+' Duplicate O365/GWS Rule Pairs',d:mergeFindCount+' pairs of O365 and GWS rules have identical configuration and can each be merged into a single multi-app rule — reducing your rule count by '+mergeFindCount+' with zero coverage loss. Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate.'});
+  const silentTierCount=allFindings.filter(f=>f.issue.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('silent lower tier')).length;
+  if(silentTierCount) allRecs.push({p:'Short-term',c:'e65100',t:'Resolve '+silentTierCount+' Silent Lower-Tier Rule Group'+(silentTierCount>1?'s':''),d:silentTierCount+' detection concept'+(silentTierCount>1?'s have':' has')+' MEDIUM/LOW severity tiers that fire silently with no notification or remediation. Add notifications to make them actionable or disable them to reduce noise.'});
   allRecs.push({p:'Long-term',c:'1565c0',t:'Establish a Quarterly Security Rule Review Cycle',d:'Implement a structured quarterly review of all security rules covering effectiveness, threat alignment, remediation appropriateness, and removal of obsolete rules.'});
   if(demoData.length) allRecs.push({p:'Long-term',c:'1565c0',t:'Import Real Data for '+demoData.length+' Demo Module'+(demoData.length>1?'s':''),d:demoData.map(d=>d.label).join(', ')+(demoData.length>1?' are':' is')+' showing demo data. Export and import real configuration data to make findings fully actionable.'});
 
@@ -2591,7 +2595,7 @@ pp:{
           activities,tags:(r.tags||[])};
       };
       const norm=rules.map(r=>_norm(r));
-      const issues={noRemediation:[],noNotification:[],inactive:[],dupPriority:[],testRules:[]};
+      const issues={noRemediation:[],noNotification:[],inactive:[],dupPriority:[],testRules:[],dupEffort:[]};
 
       // Active rules with no remediation
       const _isDlpTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
@@ -2645,7 +2649,35 @@ pp:{
           rec:'Disable or remove test rules, or rename once fully approved.'});
       });
 
-      return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotification:8,dupPriority:8,testRules:6}),rules,'rules');
+      
+      // ── CONSOLIDATION: O365/GWS pairs that can be merged into multi-app rules ──
+      const _nc=name=>{let n=name.replace(/^(O365|GWS|GSUITE|GIT)\//i,'');n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING)[-_\s]*$/i,'');return n.trim().toLowerCase();};
+      const _byC={};
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{const c=_nc(r.name);if(!_byC[c])_byC[c]=[];_byC[c].push(r);});
+      Object.entries(_byC).forEach(([concept,rs])=>{
+        if(rs.length<2) return;
+        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
+        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
+        const sevs=rs.map(r=>r.severity);
+        const remDiff=new Set(remSigs).size>1;
+        const sevDiff=new Set(sevs).size>1;
+        const hasPlatformRem=remDiff&&rs.some(r=>(r.remActions||[]).includes('Revoke Session'))&&rs.some(r=>(r.remActions||[]).includes('Suspend user'));
+        const mergeable=!sevDiff&&(!remDiff||hasPlatformRem);
+        if(!mergeable) return;
+        const ruleNames=rs.map(r=>r.name).join(' + ');
+        if(!remDiff&&new Set(notifSigs).size===1){
+          issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
+            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
+        } else if(hasPlatformRem){
+          issues.dupEffort.push({sev:'info',name:`Consolidate (dual rem): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`Can merge into one multi-app rule with both remediation actions: ${rs.map(r=>r.appNames+' → '+(r.remActions||[]).join('/')).join(', ')}. Rules: ${ruleNames}`,
+            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:'Merge into one rule. Add both "Revoke Session" (O365) and "Suspend user" (GWS) — Proofpoint applies the correct action per app at runtime.'});
+        }
+      });
+return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotification:8,dupPriority:8,testRules:2,dupEffort:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _norm=r=>{
@@ -2666,6 +2698,7 @@ pp:{
          {n:result.issues.noNotification.length,l:'Silent Rules',c:'yellow',link:`${pid}-${mid}-nn`}],
         [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'DLP rules that only alert — no automated response',issues:result.issues.noRemediation},
          {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates — fires without alerting team',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'O365/GWS rule pairs that can be merged into single multi-app rules',issues:result.issues.dupEffort||[]},
          {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Shared priority — unpredictable evaluation order',issues:result.issues.dupPriority},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still enabled in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled — confirm intentional or remove',issues:result.issues.inactive}]);
@@ -2846,7 +2879,7 @@ pp:{
           activities,threats,tags:(r.tags||[])};
       };
       const norm=rules.map(r=>_norm(r));
-      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
+      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[],dupEffort:[]};
       norm.filter(r=>r.isActive&&!r.hasRemediation).forEach(r=>{
         const sev=r.severity==='CRITICAL'||r.severity==='HIGH'?'critical':'warning';
         issues.noRemediation.push({sev,name:r.name,
@@ -2911,7 +2944,7 @@ pp:{
           activities,threats,tags:(r.tags||[])};
       };
       const norm=rules.map(r=>_norm(r));
-      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[]};
+      const issues={noRemediation:[],noNotification:[],inactive:[],testRules:[],dupEffort:[]};
 
       const _isDswTest=r=>/(?:^|[\/_:\s-])(TESTING|TST|POC|STAGING)(?:$|[\/_:\s-:])/i.test(r.name);
       norm.filter(r=>r.isActive&&!r.hasRemediation&&(r.severity==='CRITICAL'||r.severity==='HIGH')&&!_isDswTest(r)).forEach(r=>{
@@ -2946,7 +2979,35 @@ pp:{
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],
           rec:'Disable or rename once approved.'});
       });
-      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6}),rules,'rules');
+      
+      // ── CONSOLIDATION: O365/GWS pairs that can be merged into multi-app rules ──
+      const _nc=name=>{let n=name.replace(/^(O365|GWS|GSUITE|GIT)\//i,'');n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING)[-_\s]*$/i,'');return n.trim().toLowerCase();};
+      const _byC={};
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{const c=_nc(r.name);if(!_byC[c])_byC[c]=[];_byC[c].push(r);});
+      Object.entries(_byC).forEach(([concept,rs])=>{
+        if(rs.length<2) return;
+        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
+        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
+        const sevs=rs.map(r=>r.severity);
+        const remDiff=new Set(remSigs).size>1;
+        const sevDiff=new Set(sevs).size>1;
+        const hasPlatformRem=remDiff&&rs.some(r=>(r.remActions||[]).includes('Revoke Session'))&&rs.some(r=>(r.remActions||[]).includes('Suspend user'));
+        const mergeable=!sevDiff&&(!remDiff||hasPlatformRem);
+        if(!mergeable) return;
+        const ruleNames=rs.map(r=>r.name).join(' + ');
+        if(!remDiff&&new Set(notifSigs).size===1){
+          issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
+            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
+        } else if(hasPlatformRem){
+          issues.dupEffort.push({sev:'info',name:`Consolidate (dual rem): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`Can merge into one multi-app rule with both remediation actions: ${rs.map(r=>r.appNames+' → '+(r.remActions||[]).join('/')).join(', ')}. Rules: ${ruleNames}`,
+            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:'Merge into one rule. Add both "Revoke Session" (O365) and "Suspend user" (GWS) — Proofpoint applies the correct action per app at runtime.'});
+        }
+      });
+return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:2,dupEffort:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
@@ -2960,6 +3021,7 @@ pp:{
          {n:result.issues.testRules.length,l:'Test Rules',c:'yellow',link:`${pid}-${mid}-tr`}],
         [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Suspicious activity rules with no automated response',issues:result.issues.noRemediation},
          {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates configured',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'O365/GWS rule pairs that can be merged into single multi-app rules',issues:result.issues.dupEffort||[]},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules',issues:result.issues.inactive}]);
     }
@@ -3200,7 +3262,35 @@ pp:{
           detail:`Test rule active in production. Apps: ${r.appNames}`,
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
       });
-      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:6}),rules,'rules');
+      
+      // ── CONSOLIDATION: O365/GWS pairs that can be merged into multi-app rules ──
+      const _nc=name=>{let n=name.replace(/^(O365|GWS|GSUITE|GIT)\//i,'');n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING)[-_\s]*$/i,'');return n.trim().toLowerCase();};
+      const _byC={};
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{const c=_nc(r.name);if(!_byC[c])_byC[c]=[];_byC[c].push(r);});
+      Object.entries(_byC).forEach(([concept,rs])=>{
+        if(rs.length<2) return;
+        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
+        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
+        const sevs=rs.map(r=>r.severity);
+        const remDiff=new Set(remSigs).size>1;
+        const sevDiff=new Set(sevs).size>1;
+        const hasPlatformRem=remDiff&&rs.some(r=>(r.remActions||[]).includes('Revoke Session'))&&rs.some(r=>(r.remActions||[]).includes('Suspend user'));
+        const mergeable=!sevDiff&&(!remDiff||hasPlatformRem);
+        if(!mergeable) return;
+        const ruleNames=rs.map(r=>r.name).join(' + ');
+        if(!remDiff&&new Set(notifSigs).size===1){
+          issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
+            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
+        } else if(hasPlatformRem){
+          issues.dupEffort.push({sev:'info',name:`Consolidate (dual rem): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
+            detail:`Can merge into one multi-app rule with both remediation actions: ${rs.map(r=>r.appNames+' → '+(r.remActions||[]).join('/')).join(', ')}. Rules: ${ruleNames}`,
+            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
+            rec:'Merge into one rule. Add both "Revoke Session" (O365) and "Suspend user" (GWS) — Proofpoint applies the correct action per app at runtime.'});
+        }
+      });
+return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:2,dupEffort:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
@@ -3215,6 +3305,7 @@ pp:{
          {n:result.issues.noNotification.length,l:'Silent',c:'yellow',link:`${pid}-${mid}-nn`}],
         [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'App governance rules with no automated response',issues:result.issues.noRemediation},
          {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates configured',issues:result.issues.noNotification},
+         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'O365/GWS rule pairs that can be merged into single multi-app rules',issues:result.issues.dupEffort||[]},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules',issues:result.issues.inactive}]);
     }
