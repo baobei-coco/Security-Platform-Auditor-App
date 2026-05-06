@@ -821,8 +821,8 @@ async function exportWordReport(){
   if(testProdCount) allRecs.push({p:'Short-term',c:'e65100',t:'Remove or Formalise Test Rules in Production',d:testProdCount+' test or PoC rule'+(testProdCount>1?'s are':' is')+' active in production. Review each and rename to production conventions, disable, or delete as appropriate.'});
   const inactiveCount=allFindings.filter(f=>f.key==='inactive').length;
   if(inactiveCount) allRecs.push({p:'Short-term',c:'e65100',t:'Review and Clean Up Inactive Rules',d:inactiveCount+' rule'+(inactiveCount>1?'s are':' is')+' currently inactive. Review to confirm intentional or remove to reduce configuration complexity.'});
-  const mergeFindCount=allFindings.filter(f=>f.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('consolidate')).length;
-  if(mergeFindCount) allRecs.push({p:'Short-term',c:'e65100',t:'Consolidate '+mergeFindCount+' Duplicate O365/GWS Rule Pairs',d:mergeFindCount+' pairs of O365 and GWS rules have identical configuration and can each be merged into a single multi-app rule — reducing your rule count by '+mergeFindCount+' with zero coverage loss. Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate.'});
+  const classifierOverlapCount=allFindings.filter(f=>f.key==='dupEffort'&&f.issue.tags&&f.issue.tags.some(t=>t.v==='CLASSIFIER OVERLAP')).length;
+  if(classifierOverlapCount) allRecs.push({p:'Short-term',c:'e65100',t:'Consolidate '+classifierOverlapCount+' Overlapping Classifier Rule Group'+(classifierOverlapCount>1?'s':''),d:classifierOverlapCount+' group'+(classifierOverlapCount>1?'s':'')+' of rules on the same app detect the same activity using different classifiers (e.g. standard + FinancialAccounting + TAMU variants). These may generate duplicate incidents. Review and consolidate into single rules with combined classifiers where possible.'});
   const silentTierCount=allFindings.filter(f=>f.key==='dupEffort'&&f.issue.name&&f.issue.name.toLowerCase().includes('silent lower tier')).length;
   if(silentTierCount) allRecs.push({p:'Short-term',c:'e65100',t:'Resolve '+silentTierCount+' Silent Lower-Tier Rule Group'+(silentTierCount>1?'s':''),d:silentTierCount+' detection concept'+(silentTierCount>1?'s have':' has')+' MEDIUM/LOW severity tiers that fire silently with no notification or remediation. Add notifications to make them actionable or disable them to reduce noise.'});
   allRecs.push({p:'Long-term',c:'1565c0',t:'Establish a Quarterly Security Rule Review Cycle',d:'Implement a structured quarterly review of all security rules covering effectiveness, threat alignment, remediation appropriateness, and removal of obsolete rules.'});
@@ -2365,68 +2365,67 @@ pp:{
             rec:`Verify whether ${a} is in scope. If monitored, ensure relevant rules exist in the appropriate module.`});
       });
 
-      // ── DUPLICATION / CONSOLIDATION DETECTION ───────────────────────────────
-      // Strip app prefix to get detection concept
-      const _normConcept=name=>{
-        let n=name.replace(/^(O365|GWS|GSUITE|GIT|ZOOM)\//i,'');
-        n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING|TEST)[-_\s]*$/i,'');
-        return n.trim().toLowerCase();
-      };
+      // ── DUPLICATION / // ── SAME-APP OVERLAPPING DETECTIONS ──────────────────────────────────────
+      // Find rules on the SAME app with the SAME activity type that may overlap.
+      // These could be consolidated into fewer rules with broader classifiers.
 
-      const byConceptAll={};
-      norm.forEach(r=>{
-        const concept=_normConcept(r.name);
-        if(!byConceptAll[concept])byConceptAll[concept]=[];
-        byConceptAll[concept].push(r);
+      const _appKey=r=>(r.applications||[]).map(a=>(a.name||'').toLowerCase()).sort().join('|');
+      const _actKey=r=>(r.activities||[]).map(a=>(a.name||'')).sort().join('|');
+
+      const byAppAct={};
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{
+        const raw=rules.find(x=>x.name===r.name)||{};
+        const appK=_appKey(raw);
+        const actK=_actKey(raw);
+        const key=appK+':::'+actK;
+        if(!byAppAct[key])byAppAct[key]={appK,actK,items:[]};
+        byAppAct[key].items.push({r,raw});
       });
 
-      Object.entries(byConceptAll).forEach(([concept,rs])=>{
-        if(rs.length<2) return;
-        // Compare configuration between all rules with same concept
-        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
-        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
-        const sevs=rs.map(r=>r.severity);
-        const acts=rs.map(r=>{
-          const raw=rules.find(raw=>raw.name===r.name);
-          return JSON.stringify(((raw&&raw.activities)||[]).map(a=>a.name||a).sort());
+      Object.values(byAppAct).forEach(({appK,actK,items:grp})=>{
+        if(grp.length<2) return;
+        const byBase={};
+        grp.forEach(({r,raw})=>{
+          let base=r.name.replace(/^(O365|GWS|GSUITE|ZOOM)\//i,'');
+          base=base.replace(/\s*[\/-]\s*(Definite|Probable)$/i,'');
+          base=base.replace(/\s*\((?:high|medium|low|critical)[^)]*\)$/i,'');
+          base=base.replace(/[-_]TAMUResearch\w*/i,'');
+          base=base.replace(/[-_]ResearchWords\w*/i,'');
+          base=base.replace(/FinancialAccounting\/|Research\s*(?:Terms|Data)\//i,'');
+          base=base.trim().toLowerCase();
+          if(!byBase[base])byBase[base]=[];
+          byBase[base].push(r);
         });
 
-        const notifDiff=new Set(notifSigs).size>1;
-        const remDiff=new Set(remSigs).size>1;
-        const sevDiff=new Set(sevs).size>1;
-        const actDiff=new Set(acts).size>1;
+        Object.entries(byBase).forEach(([base,members])=>{
+          if(members.length<2) return;
+          const names=members.map(m=>m.name);
+          const appDisplay=appK.split('|').join(' + ');
+          const hasTier=names.some(n=>/\/Definite|\/Probable/i.test(n));
+          const hasClassifier=names.some(n=>/FinancialAccounting|Research\s*(Terms|Data|Words)/i.test(n));
+          if(!hasTier&&!hasClassifier) return;
 
-        // Platform-specific remediation is expected: O365=Revoke Session, GWS=Suspend user
-        const hasPlatformSpecificRem=remDiff&&rs.some(r=>r.remActions.includes('Revoke Session'))&&rs.some(r=>r.remActions.includes('Suspend user'));
-        // If only the remediation differs and it's the expected O365/GWS split, it's still mergeable
-        const mergeable=!sevDiff&&!actDiff&&(!remDiff||hasPlatformSpecificRem);
-
-        const ruleNames=rs.map(r=>r.name).join(' + ');
-        const appList=rs.map(r=>r.appNames).join(' + ');
-
-        if(mergeable&&!notifDiff){
-          // Perfect merge — identical config, just different app
-          issues.dupEffort.push({sev:'info',
-            name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`${rs.length} rules are identical except for the app — can be merged into one multi-app rule. Rules: ${ruleNames}`,
-            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:`In Proofpoint CASB, edit one rule and add the second app under "Applications and Activity Type", then delete the other. No coverage loss.`});
-        } else if(mergeable&&hasPlatformSpecificRem){
-          // Mergeable but needs both remediation actions
-          issues.dupEffort.push({sev:'info',
-            name:`Consolidate (dual remediation): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`Can merge into one multi-app rule but requires both remediation actions: ${rs.map(r=>r.appNames+' → '+r.remActions.join('/')).join(', ')}. Rules: ${ruleNames}`,
-            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:`Merge into one rule covering both apps. Add both "Revoke Session" (O365) and "Suspend user" (GWS) as remediation actions — Proofpoint applies the correct action per app at runtime.`});
-        }
+          const sev=hasClassifier?'warning':'info';
+          const tag=hasClassifier?'CLASSIFIER OVERLAP':'TIER STACK';
+          const detail=hasClassifier
+            ? 'Multiple rules detect the same activity on '+appDisplay+' using different classifiers — they may generate duplicate incidents for the same event: '+names.join(', ')
+            : 'Confidence tier stack on '+appDisplay+' — '+members.length+' rules detect the same activity at different confidence levels: '+names.join(', ');
+          const rec=hasClassifier
+            ? 'Review whether these classifier variants detect genuinely different events. If they fire on the same data, consolidate into one rule with a combined classifier or remove the lower-priority variant.'
+            : 'Verify each tier adds value. If the HIGH/CRITICAL tier already captures actionable events, MEDIUM/LOW tiers may only add queue noise.';
+          if(issues.dupEffort) issues.dupEffort.push({sev,
+            name:'Overlapping: '+base.slice(0,45),
+            detail,tags:[{v:tag,c:sev==='warning'?'y':'b'},{v:appDisplay},{v:members.length+' rules'}],rec});
+        });
       });
 
-      // Silent lower tiers — same detection at different confidence levels where lower tiers are silent
+      // Silent lower tiers
       const byBaseConcept={};
-      norm.filter(r=>!r.isTest).forEach(r=>{
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{
         let base=r.name.replace(/^(O365|GWS|GSUITE)\//i,'');
         base=base.replace(/\s*[\/-]\s*(Definite|Probable|High|Medium|Low|Critical).*$/i,'');
-        base=base.replace(/\s*\([^)]*\)\s*$/,'').trim().toLowerCase();
+        base=base.replace(/\s*\([^)]*\)\s*$/,'');
+        base=base.replace(/[-_]TAMUResearch\w*/i,'').trim().toLowerCase();
         if(!byBaseConcept[base])byBaseConcept[base]=[];
         byBaseConcept[base].push(r);
       });
@@ -2439,23 +2438,14 @@ pp:{
         if(hasHighNotif&&uniqueSilent.length>0){
           seenSilentBase.add(base);
           if(issues.dupEffort) issues.dupEffort.push({sev:'info',
-            name:`Silent lower tiers: ${base.slice(0,48)}`,
-            detail:`The HIGH/CRITICAL tier alerts your team, but the MEDIUM/LOW tiers fire with no notification and no remediation: ${uniqueSilent.map(r=>r.name).join(', ')}`,
+            name:'Silent lower tiers: '+base.slice(0,45),
+            detail:'HIGH/CRITICAL tier notifies your team but MEDIUM/LOW tiers fire silently: '+uniqueSilent.map(r=>r.name).join(', '),
             tags:[{v:'SILENT LOWER TIER',c:'b'}],
-            rec:'Either add notifications to the lower tiers to make them actionable, or disable them — silent rules that generate incidents nobody sees add noise without value.'});
+            rec:'Add notifications to lower tiers to make them actionable, or disable them. Silent rules create queue entries nobody is alerted about.'});
         }
       });
 
-      // TAMU-specific variants alongside standard rules
-      const tamuRules=norm.filter(r=>!r.isTest&&(r.name.includes('TAMUResearch')||r.name.includes('ResearchWords')));
-      if(tamuRules.length>0){
-        const uniqueTamu=[...new Map(tamuRules.map(r=>[_normConcept(r.name),r])).values()];
-        if(issues.dupEffort) issues.dupEffort.push({sev:'info',
-          name:`${uniqueTamu.length} TAMU-specific classifier variants alongside standard rules`,
-          detail:`Rules using TAMUResearchWords and ResearchWordsExternalShare classifiers detect the same activities (Massive Download, Broad Sharing, Deletions) as your standard DLP rules, but with TAMU-specific classifiers. ${tamuRules.length} total TAMU-specific rules.`,
-          tags:[{v:'TAMU CLASSIFIER',c:'b'},{v:`${tamuRules.length} rules`}],
-          rec:'Verify whether these TAMU-specific classifiers detect events the standard rules miss. If the standard rules already cover them, these rules can be removed to reduce incident noise.'});
-      }      return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:2,coverage:1,dupEffort:3}),rules,'rules');
+      return makeResult(issues,calcScore(issues,{noRemediation:15,disabled:5,noNotification:8,dupPriority:10,testRules:2,coverage:1,dupEffort:3}),rules,'rules');
     },
     render(pid,mid,result){
       const _norm=r=>{
@@ -2650,34 +2640,51 @@ pp:{
       });
 
       
-      // ── CONSOLIDATION: O365/GWS pairs that can be merged into multi-app rules ──
-      const _nc=name=>{let n=name.replace(/^(O365|GWS|GSUITE|GIT)\//i,'');n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING)[-_\s]*$/i,'');return n.trim().toLowerCase();};
-      const _byC={};
-      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{const c=_nc(r.name);if(!_byC[c])_byC[c]=[];_byC[c].push(r);});
-      Object.entries(_byC).forEach(([concept,rs])=>{
-        if(rs.length<2) return;
-        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
-        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
-        const sevs=rs.map(r=>r.severity);
-        const remDiff=new Set(remSigs).size>1;
-        const sevDiff=new Set(sevs).size>1;
-        const hasPlatformRem=remDiff&&rs.some(r=>(r.remActions||[]).includes('Revoke Session'))&&rs.some(r=>(r.remActions||[]).includes('Suspend user'));
-        const mergeable=!sevDiff&&(!remDiff||hasPlatformRem);
-        if(!mergeable) return;
-        const ruleNames=rs.map(r=>r.name).join(' + ');
-        if(!remDiff&&new Set(notifSigs).size===1){
-          if(issues.dupEffort) issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
-            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
-        } else if(hasPlatformRem){
-          issues.dupEffort.push({sev:'info',name:`Consolidate (dual rem): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`Can merge into one multi-app rule with both remediation actions: ${rs.map(r=>r.appNames+' → '+(r.remActions||[]).join('/')).join(', ')}. Rules: ${ruleNames}`,
-            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:'Merge into one rule. Add both "Revoke Session" (O365) and "Suspend user" (GWS) — Proofpoint applies the correct action per app at runtime.'});
-        }
+            // ── SAME-APP OVERLAPPING DETECTIONS ─────────────────────────────────────
+      const _appKeyM=r=>(r.applications||[]).map(a=>(a.name||'').toLowerCase()).sort().join('|');
+      const _actKeyM=r=>(r.activities||[]).map(a=>(a.name||'')).sort().join('|');
+      const _byAppActM={};
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{
+        const raw=rules.find(x=>x.name===r.name)||{};
+        const key=_appKeyM(raw)+':::'+_actKeyM(raw);
+        if(!_byAppActM[key])_byAppActM[key]=[];
+        _byAppActM[key].push(r);
       });
-return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotification:8,dupPriority:8,testRules:2,dupEffort:2}),rules,'rules');
+      Object.entries(_byAppActM).forEach(([key,grp])=>{
+        if(grp.length<2) return;
+        const byBase={};
+        grp.forEach(r=>{
+          let base=r.name.replace(/^(O365|GWS|GSUITE)\//i,'');
+          base=base.replace(/\s*[\/-]\s*(Definite|Probable)$/i,'');
+          base=base.replace(/\s*\((?:high|medium|low|critical)[^)]*\)$/i,'');
+          base=base.replace(/[-_]TAMUResearch\w*/i,'');
+          base=base.replace(/FinancialAccounting\/|Research\s*(?:Terms|Data|Words)\//i,'');
+          base=base.trim().toLowerCase();
+          if(!byBase[base])byBase[base]=[];
+          byBase[base].push(r);
+        });
+        Object.entries(byBase).forEach(([base,members])=>{
+          if(members.length<2) return;
+          const names=members.map(m=>m.name);
+          const hasClassifier=names.some(n=>/FinancialAccounting|Research\s*(Terms|Data|Words)/i.test(n));
+          const hasTier=names.some(n=>/\/Definite|\/Probable/i.test(n));
+          if(!hasClassifier&&!hasTier) return;
+          const appDisplay=key.split(':::')[0].split('|').join(' + ');
+          const sev=hasClassifier?'warning':'info';
+          const detail=hasClassifier
+            ?'Multiple rules detect the same activity on '+appDisplay+' using different classifiers — may generate duplicate incidents: '+names.join(', ')
+            :'Confidence tier stack on '+appDisplay+': '+names.join(', ');
+          const rec=hasClassifier
+            ?'Review whether these classifier variants detect different events. If they fire on the same data, consolidate into one rule with a combined classifier.'
+            :'Verify each tier adds value. MEDIUM/LOW tiers may be redundant if the HIGH tier already captures actionable events.';
+          if(issues.dupEffort) issues.dupEffort.push({sev,name:'Overlapping: '+base.slice(0,45),
+            detail,tags:[{v:hasClassifier?'CLASSIFIER OVERLAP':'TIER STACK',c:sev==='warning'?'y':'b'},{v:members.length+' rules'}],rec});
+        });
+      
+
+      });
+
+      return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotification:8,dupPriority:8,testRules:2,dupEffort:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _norm=r=>{
@@ -2698,7 +2705,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotific
          {n:result.issues.noNotification.length,l:'Silent Rules',c:'yellow',link:`${pid}-${mid}-nn`}],
         [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'DLP rules that only alert — no automated response',issues:result.issues.noRemediation},
          {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates — fires without alerting team',issues:result.issues.noNotification},
-         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'O365/GWS rule pairs that can be merged into single multi-app rules',issues:result.issues.dupEffort||[]},
+         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'Same-app rules with overlapping classifiers or confidence tiers that may be consolidated',issues:result.issues.dupEffort||[]},
          {id:`${pid}-${mid}-dp`,icon:'⚠️',title:'Duplicate Priorities',desc:'Shared priority — unpredictable evaluation order',issues:result.issues.dupPriority},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still enabled in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled — confirm intentional or remove',issues:result.issues.inactive}]);
@@ -2980,34 +2987,49 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,inactive:5,noNotific
           rec:'Disable or rename once approved.'});
       });
       
-      // ── CONSOLIDATION: O365/GWS pairs that can be merged into multi-app rules ──
-      const _nc=name=>{let n=name.replace(/^(O365|GWS|GSUITE|GIT)\//i,'');n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING)[-_\s]*$/i,'');return n.trim().toLowerCase();};
-      const _byC={};
-      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{const c=_nc(r.name);if(!_byC[c])_byC[c]=[];_byC[c].push(r);});
-      Object.entries(_byC).forEach(([concept,rs])=>{
-        if(rs.length<2) return;
-        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
-        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
-        const sevs=rs.map(r=>r.severity);
-        const remDiff=new Set(remSigs).size>1;
-        const sevDiff=new Set(sevs).size>1;
-        const hasPlatformRem=remDiff&&rs.some(r=>(r.remActions||[]).includes('Revoke Session'))&&rs.some(r=>(r.remActions||[]).includes('Suspend user'));
-        const mergeable=!sevDiff&&(!remDiff||hasPlatformRem);
-        if(!mergeable) return;
-        const ruleNames=rs.map(r=>r.name).join(' + ');
-        if(!remDiff&&new Set(notifSigs).size===1){
-          if(issues.dupEffort) issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
-            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
-        } else if(hasPlatformRem){
-          issues.dupEffort.push({sev:'info',name:`Consolidate (dual rem): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`Can merge into one multi-app rule with both remediation actions: ${rs.map(r=>r.appNames+' → '+(r.remActions||[]).join('/')).join(', ')}. Rules: ${ruleNames}`,
-            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:'Merge into one rule. Add both "Revoke Session" (O365) and "Suspend user" (GWS) — Proofpoint applies the correct action per app at runtime.'});
-        }
+            // ── SAME-APP OVERLAPPING DETECTIONS ─────────────────────────────────────
+      const _appKeyM=r=>(r.applications||[]).map(a=>(a.name||'').toLowerCase()).sort().join('|');
+      const _actKeyM=r=>(r.activities||[]).map(a=>(a.name||'')).sort().join('|');
+      const _byAppActM={};
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{
+        const raw=rules.find(x=>x.name===r.name)||{};
+        const key=_appKeyM(raw)+':::'+_actKeyM(raw);
+        if(!_byAppActM[key])_byAppActM[key]=[];
+        _byAppActM[key].push(r);
       });
-return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:2,dupEffort:2}),rules,'rules');
+      Object.entries(_byAppActM).forEach(([key,grp])=>{
+        if(grp.length<2) return;
+        const byBase={};
+        grp.forEach(r=>{
+          let base=r.name.replace(/^(O365|GWS|GSUITE)\//i,'');
+          base=base.replace(/\s*[\/-]\s*(Definite|Probable)$/i,'');
+          base=base.replace(/\s*\((?:high|medium|low|critical)[^)]*\)$/i,'');
+          base=base.replace(/[-_]TAMUResearch\w*/i,'');
+          base=base.replace(/FinancialAccounting\/|Research\s*(?:Terms|Data|Words)\//i,'');
+          base=base.trim().toLowerCase();
+          if(!byBase[base])byBase[base]=[];
+          byBase[base].push(r);
+        });
+        Object.entries(byBase).forEach(([base,members])=>{
+          if(members.length<2) return;
+          const names=members.map(m=>m.name);
+          const hasClassifier=names.some(n=>/FinancialAccounting|Research\s*(Terms|Data|Words)/i.test(n));
+          const hasTier=names.some(n=>/\/Definite|\/Probable/i.test(n));
+          if(!hasClassifier&&!hasTier) return;
+          const appDisplay=key.split(':::')[0].split('|').join(' + ');
+          const sev=hasClassifier?'warning':'info';
+          const detail=hasClassifier
+            ?'Multiple rules detect the same activity on '+appDisplay+' using different classifiers — may generate duplicate incidents: '+names.join(', ')
+            :'Confidence tier stack on '+appDisplay+': '+names.join(', ');
+          const rec=hasClassifier
+            ?'Review whether these classifier variants detect different events. If they fire on the same data, consolidate into one rule with a combined classifier.'
+            :'Verify each tier adds value. MEDIUM/LOW tiers may be redundant if the HIGH tier already captures actionable events.';
+          if(issues.dupEffort) issues.dupEffort.push({sev,name:'Overlapping: '+base.slice(0,45),
+            detail,tags:[{v:hasClassifier?'CLASSIFIER OVERLAP':'TIER STACK',c:sev==='warning'?'y':'b'},{v:members.length+' rules'}],rec});
+        });
+      });
+
+      return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:2,dupEffort:2}),rules,'rules');
     },
     render(pid,mid,result){
       const _n=r=>{const rem=Object.values(r.remediationActions||{}).flat();return{isActive:r.isActive!==undefined?r.isActive:true,hasRem:rem.length>0,sev:(r.severity||'').toUpperCase()};};
@@ -3021,7 +3043,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
          {n:result.issues.testRules.length,l:'Test Rules',c:'yellow',link:`${pid}-${mid}-tr`}],
         [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'Suspicious activity rules with no automated response',issues:result.issues.noRemediation},
          {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates configured',issues:result.issues.noNotification},
-         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'O365/GWS rule pairs that can be merged into single multi-app rules',issues:result.issues.dupEffort||[]},
+         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'Same-app rules with overlapping classifiers or confidence tiers that may be consolidated',issues:result.issues.dupEffort||[]},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules',issues:result.issues.inactive}]);
     }
@@ -3263,33 +3285,48 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
           tags:[{v:'TEST RULE',c:'y'},{v:r.appNames}],rec:'Disable or rename once approved.'});
       });
       
-      // ── CONSOLIDATION: O365/GWS pairs that can be merged into multi-app rules ──
-      const _nc=name=>{let n=name.replace(/^(O365|GWS|GSUITE|GIT)\//i,'');n=n.replace(/[-_\s]*(TESTING|TST|POC|STAGING)[-_\s]*$/i,'');return n.trim().toLowerCase();};
-      const _byC={};
-      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{const c=_nc(r.name);if(!_byC[c])_byC[c]=[];_byC[c].push(r);});
-      Object.entries(_byC).forEach(([concept,rs])=>{
-        if(rs.length<2) return;
-        const notifSigs=rs.map(r=>JSON.stringify((r.notifTemplates||[]).slice().sort()));
-        const remSigs=rs.map(r=>JSON.stringify((r.remActions||[]).slice().sort()));
-        const sevs=rs.map(r=>r.severity);
-        const remDiff=new Set(remSigs).size>1;
-        const sevDiff=new Set(sevs).size>1;
-        const hasPlatformRem=remDiff&&rs.some(r=>(r.remActions||[]).includes('Revoke Session'))&&rs.some(r=>(r.remActions||[]).includes('Suspend user'));
-        const mergeable=!sevDiff&&(!remDiff||hasPlatformRem);
-        if(!mergeable) return;
-        const ruleNames=rs.map(r=>r.name).join(' + ');
-        if(!remDiff&&new Set(notifSigs).size===1){
-          if(issues.dupEffort) issues.dupEffort.push({sev:'info',name:`Consolidate: ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`${rs.length} identical rules differ only by app — can be merged into one multi-app rule: ${ruleNames}`,
-            tags:[{v:'MERGE CANDIDATE',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:'Edit one rule, add the second app under "Applications and Activity Type", then delete the duplicate. No coverage loss.'});
-        } else if(hasPlatformRem){
-          issues.dupEffort.push({sev:'info',name:`Consolidate (dual rem): ${rs[0].name.replace(/^(O365|GWS)\//i,'')}`,
-            detail:`Can merge into one multi-app rule with both remediation actions: ${rs.map(r=>r.appNames+' → '+(r.remActions||[]).join('/')).join(', ')}. Rules: ${ruleNames}`,
-            tags:[{v:'MERGE + DUAL REM',c:'b'},{v:`${rs.length} rules → 1`}],
-            rec:'Merge into one rule. Add both "Revoke Session" (O365) and "Suspend user" (GWS) — Proofpoint applies the correct action per app at runtime.'});
-        }
+            // ── SAME-APP OVERLAPPING DETECTIONS ─────────────────────────────────────
+      const _appKeyM=r=>(r.applications||[]).map(a=>(a.name||'').toLowerCase()).sort().join('|');
+      const _actKeyM=r=>(r.activities||[]).map(a=>(a.name||'')).sort().join('|');
+      const _byAppActM={};
+      norm.filter(r=>!r.isTest&&r.isActive).forEach(r=>{
+        const raw=rules.find(x=>x.name===r.name)||{};
+        const key=_appKeyM(raw)+':::'+_actKeyM(raw);
+        if(!_byAppActM[key])_byAppActM[key]=[];
+        _byAppActM[key].push(r);
       });
+      Object.entries(_byAppActM).forEach(([key,grp])=>{
+        if(grp.length<2) return;
+        const byBase={};
+        grp.forEach(r=>{
+          let base=r.name.replace(/^(O365|GWS|GSUITE)\//i,'');
+          base=base.replace(/\s*[\/-]\s*(Definite|Probable)$/i,'');
+          base=base.replace(/\s*\((?:high|medium|low|critical)[^)]*\)$/i,'');
+          base=base.replace(/[-_]TAMUResearch\w*/i,'');
+          base=base.replace(/FinancialAccounting\/|Research\s*(?:Terms|Data|Words)\//i,'');
+          base=base.trim().toLowerCase();
+          if(!byBase[base])byBase[base]=[];
+          byBase[base].push(r);
+        });
+        Object.entries(byBase).forEach(([base,members])=>{
+          if(members.length<2) return;
+          const names=members.map(m=>m.name);
+          const hasClassifier=names.some(n=>/FinancialAccounting|Research\s*(Terms|Data|Words)/i.test(n));
+          const hasTier=names.some(n=>/\/Definite|\/Probable/i.test(n));
+          if(!hasClassifier&&!hasTier) return;
+          const appDisplay=key.split(':::')[0].split('|').join(' + ');
+          const sev=hasClassifier?'warning':'info';
+          const detail=hasClassifier
+            ?'Multiple rules detect the same activity on '+appDisplay+' using different classifiers — may generate duplicate incidents: '+names.join(', ')
+            :'Confidence tier stack on '+appDisplay+': '+names.join(', ');
+          const rec=hasClassifier
+            ?'Review whether these classifier variants detect different events. If they fire on the same data, consolidate into one rule with a combined classifier.'
+            :'Verify each tier adds value. MEDIUM/LOW tiers may be redundant if the HIGH tier already captures actionable events.';
+          if(issues.dupEffort) issues.dupEffort.push({sev,name:'Overlapping: '+base.slice(0,45),
+            detail,tags:[{v:hasClassifier?'CLASSIFIER OVERLAP':'TIER STACK',c:sev==='warning'?'y':'b'},{v:members.length+' rules'}],rec});
+        });
+      });
+
 return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,inactive:5,testRules:2,dupEffort:2}),rules,'rules');
     },
     render(pid,mid,result){
@@ -3305,7 +3342,7 @@ return makeResult(issues,calcScore(issues,{noRemediation:15,noNotification:8,ina
          {n:result.issues.noNotification.length,l:'Silent',c:'yellow',link:`${pid}-${mid}-nn`}],
         [{id:`${pid}-${mid}-nr`,icon:'🔴',title:'No Remediation Actions',desc:'App governance rules with no automated response',issues:result.issues.noRemediation},
          {id:`${pid}-${mid}-nn`,icon:'⚡',title:'Silent Rules',desc:'No notification templates configured',issues:result.issues.noNotification},
-         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'O365/GWS rule pairs that can be merged into single multi-app rules',issues:result.issues.dupEffort||[]},
+         {id:`${pid}-${mid}-de`,icon:'🔁',title:'Consolidation Opportunities',desc:'Same-app rules with overlapping classifiers or confidence tiers that may be consolidated',issues:result.issues.dupEffort||[]},
          {id:`${pid}-${mid}-tr`,icon:'🧪',title:'Test Rules Active',desc:'Test/staging rules still in production',issues:result.issues.testRules},
          {id:`${pid}-${mid}-dis`,icon:'⭕',title:'Inactive Rules',desc:'Disabled rules',issues:result.issues.inactive}]);
     }
